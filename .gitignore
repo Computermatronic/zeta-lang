@@ -1,0 +1,13 @@
+.dub
+docs.json
+__dummy.html
+docs/
+*.exe
+*.dll
+*.lib
+*.o
+*.obj
+*.lst
+*.dlangidews
+*.dlangidews.wssettings
+*.settings
