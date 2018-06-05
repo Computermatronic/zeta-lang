@@ -1,113 +1,351 @@
-module zeta.compiler;
+/* 
+ * The official Zeta interpreter.
+ * Reference implementation of the Zeta scripting language.
+ * Copyright (c) 2018 by Sean Campbell.
+ * Written by Sean Campbell.
+ * Distributed under The MIT License (See LICENCE file).
+ */
+module zeta.misc.dummy;
 
-import zeta.parser;
-import zeta.lexer;
+import zeta.parser.ast;
 
+class DummyVisitor : ASTVisitor {
+	void visit(ModuleNode node) {
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(ImportNode importNode) {
+		
+	}
+	
+	void visit(DefNode node) {
+		if (node.initializer) node.initializer.accept(this);
+	}
+	
+	void visit(FunctionNode node) {
+		foreach(paramater; node.paramaters) {
+			paramater.accept(this);
+		}
+		
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(ClassNode node) {
+		foreach(inherit; node.inherits) {
+			inherit.accept(this);
+		}
+		
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(AttributeNode node) {
+		foreach(argument; node.arguments) {
+			argument.accept(this);
+		}
+	}
+	
+	void visit(FunctionParamaterNode node) {
+		if (node.initializer) node.initializer.accept(this);
+	}
+	
+	void visit(IfNode node) {
+		node.subject.accept(this);
+		
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+		
+		if (node.else_) node.else_.accept(this);
+	}
+	
+	void visit(ElseNode node) {
 
-class Compiler
-{   
-    ParserNode[] parseTree;
-    this(string source)
-    {
-        parseTree = parse(new TokenStream(source));
-    }
-    void compile()
-    {
-        foreach(parserNode; parseTree)
-            compile(parserNode);
-    }
-    void compile(ParserNode parserNode)
-    {
-        final switch(parserNode.type())
-        {
-            case "expression":
-                ExpressionNode exp = (cast(Expression)parserNode).exp;
-                break;
-            case "if":
-                If if_ = cast(If)parserNode;
-                break;
-            case "for":
-                For for_ = cast(For)parserNode;
-                break;
-            case "foreach":
-                Foreach foreach_ = cast(Foreach)parserNode;
-                break;
-            case "until":
-                Until until = cast(Until)parserNode;
-                break;
-            case "while":
-                While while_ = cast(While)parserNode;
-                break;
-            case "def":
-                Def def = cast(Def)parserNode; 
-                break;
-            case "class":
-                Class class_ = cast(Class)parserNode;
-                break;
-            case "interface":
-                Interface_ interface_ = cast(Interface_)parserNode;
-                break;
-            case "function":
-                Function func = cast(Function)parserNode;
-                break;
-            case "return":
-                Return return_ = cast(Return)parserNode;
-                break;
-            case "break":
-                break;
-            case "jump":
-                break;
-            case "block":
-                Block block = cast(Block)parserNode;
-                foreach(nparserNode;block.body_)
-                    compile(nparserNode);
-                break;
-        }
-    }
-    
-    void compile(ExpressionNode expressionNode)
-    {
-        final switch(expressionNode.type())
-        {
-            case "number":
-                NumberLit numberLit = cast(NumberLit)expressionNode;
-                break;
-            case "string":
-                StringLit stringLit = cast(StringLit)expressionNode;
-                break;
-            case "identifier":
-                Identifier identifier = cast(Identifier)expressionNode;
-                break;
-            case "call":
-                FunctionCall functionCall = cast(FunctionCall)expressionNode;
-                break;
-            case "arithmitic":
-                Arithmitic arithmitic = cast(Arithmitic)expressionNode;
-                break;
-            case "logic":
-                Logic logic = cast(Logic)expressionNode;
-                break;
-            case "unary":
-                Unary unary = cast(Unary)expressionNode;
-                break;
-            case "unarymod":
-                UnaryMod unaryMod = cast(UnaryMod)expressionNode;
-                break;
-            case "lookup":
-                Lookup lookup = cast(Lookup)expressionNode;
-                break;
-            case "index":
-                Index index = cast(Index)expressionNode;
-                break;
-            case "tinary":
-                Tinary tinary = cast(Tinary)expressionNode;
-                break;
-            case "bracketed":
-                Bracketed bracketed = cast(Bracketed)expressionNode;
-                break;
-            case "assign":
-                Assign assign = cast(Assign)expressionNode;
-                break;
-        }
-    }
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(SwitchNode node) {
+
+		node.subject.accept(this);
+		
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(SwitchCaseNode node) {
+		foreach(argument; node.arguments) {
+			argument.accept(this);
+		}
+		
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(ForNode node) {
+		if (node.initializer) node.initializer.accept(this);
+		if (node.subject) node.subject.accept(this);
+		if (node.step) node.step.accept(this);
+		
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(ForeachNode node) {
+		foreach(initializer; node.initializers) {
+			initializer.accept(this);
+		}
+		
+		node.subject.accept(this);
+		
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(WhileNode node) {
+		node.subject.accept(this);
+		
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(WithNode node) {
+		node.subject.accept(this);
+		
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+	}
+	
+	void visit(DoWhileNode node) {
+		foreach(member; node.members) {
+			member.accept(this);
+		}
+		
+
+		node.subject.accept(this);
+	}
+	
+	void visit(BreakNode node) {
+		
+	}
+	
+	void visit(ContinueNode node) {
+		
+	}
+	
+	void visit(ReturnNode node) {
+		if (node.subject) node.subject.accept(this);
+	}
+	
+	void visit(ExpressionStatementNode node) {
+		node.subject.accept(this);
+	}
+	
+	void visit(UnaryNode node) {
+		node.subject.accept(this);
+		
+		final switch(node.operator) with(UnaryNode.Operator) {
+			case increment:
+				break;
+			
+			case decrement:
+				break;
+			
+			case posative:
+				break;
+			
+			case negative:
+				break;
+			
+			case not:
+				break;
+			
+			case bitwiseNot:
+				break;
+			
+			case postIncrement:
+				break;
+			
+			case postDecrement:
+				break;
+		}
+	}
+	
+	void visit(BinaryNode node) {
+		node.lhs.accept(this);
+		
+		final switch(node.operator) with(BinaryNode.Operator) {
+			case multiply:
+				break;
+			
+			case divide:
+				break;
+			
+			case modulo:
+				break;
+			
+			case add:
+				break;
+			
+			case subtract:
+				break;
+				
+			case bitwiseShiftLeft:
+				break;
+			
+			case bitwiseShiftRight:
+				break;
+			
+			case greaterThan: 
+				break;
+			
+			case lessThan:
+				break;
+			
+			case greaterThanEqual: 
+				break;
+			
+			case lessThanEqual:
+				break;
+			
+			case bitwiseAnd:
+				break;
+			
+			case bitwiseOr:
+				break;
+			
+			case bitwiseXor:
+				break;
+			
+			case and:
+				break;
+			
+			case or:
+				break;
+			
+			case xor:
+				break;
+			
+			case slice:
+				break;
+			
+			case concat:
+				break;
+			
+			case equal:
+				break;
+			
+			case notEqual:
+				break;
+		}
+		
+		node.rhs.accept(this);
+	}
+	
+	void visit(TinaryNode node) {
+		node.subject.accept(this);
+		
+		node.lhs.accept(this);
+		
+		node.rhs.accept(this);
+	}
+	
+	void visit(FunctionCallNode node) {
+		node.subject.accept(this);
+		
+		foreach(argument; node.arguments) {
+			argument.accept(this);
+		}
+	}
+	
+	void visit(NewNode node) {
+		node.type.accept(this);
+		
+		foreach(argument; node.arguments) {
+			argument.accept(this);
+		}
+	}
+	
+	void visit(AssignmentNode node) {
+		node.subject.accept(this);
+		
+		final switch(node.operator) with (AssignmentNode.Operator) {
+			case assign:
+				break;
+			
+			case add:
+				break;
+			
+			case subtract:
+				break;
+			
+			case multiply:
+				break;
+			case divide:
+				break;
+			
+			case modulo:
+				break;
+			
+			case concat:
+				break;
+			
+			case and:
+				break;
+			
+			case or:
+				break;
+			
+			case xor:
+				break;
+		}
+		
+		node.argument.accept(this);
+	}
+	
+	void visit(ArrayLiteralNode node) {
+		foreach(value; node.value) {
+			value.accept(this);
+		}
+	}
+	
+	void visit(IntegerLiteralNode node) {
+		
+	}
+	
+	void visit(FloatLiteralNode node) {
+		
+	}
+	
+	void visit(StringLiteralNode node) {
+		
+	}
+	
+	void visit(IdentifierNode node) {
+		
+	}
+	
+	void visit(DispatchNode node) {
+		node.subject.accept(this);
+	}
+	
+	void visit(SubscriptNode node) {
+		node.subject.accept(this);
+		
+		foreach(argument; node.arguments) {
+			argument.accept(this);
+		}
+	}
 }

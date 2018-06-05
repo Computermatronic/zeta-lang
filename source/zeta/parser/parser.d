@@ -1,1286 +1,628 @@
-module zeta.parser;
+/* 
+ * The official Zeta interpreter.
+ * Reference implementation of the Zeta scripting language.
+ * Copyright (c) 2018 by Sean Campbell.
+ * Written by Sean Campbell.
+ * Distributed under The MIT License (See LICENCE file).
+ */
+module zeta.parser.parser;
 
-import zeta.lexer;
-import zeta.utils;
-
-import std.conv : to;
+import std.traits : ReturnType;
+import std.container : DList;
+import std.string : join;
 import std.format : format;
-public import std.container : DList;
+import zeta.parser.ast;
+import zeta.parser.token;
 
-class ParserException : Exception
-{
-    this(T...)(string msg,T t)
-    {
-        static if (T.length == 0)
-            super(msg);
-        else
-            super(format(msg,t));
-    }
+ModuleNode parseTokens(Token[] tokens) {
+	auto state = new ParserState(tokens);
+	state.parseAttributes();
+	return state.parseModule();
 }
 
-enum Precedence:uint
-{
-    dispatch = 1,
-    index = 2,
-    call = 4,
-    operate = 8,
-    all = dispatch | index | call | operate
+ModuleNode parseModule(ParserState state) {
+	auto node = new ModuleNode;
+	node.location = state.front.location;
+	if (state.popTestToken(TokenType.kw_module)) {
+		node.attributes = state.attributes;
+		state.attributes = null;
+		auto nameInfo = state.parseList!((ParserState state) => state.expectToken(TokenType.ud_identifier).text)(TokenType.tk_dot);
+		node.packageName = nameInfo.length > 1 ? nameInfo[0..$-1].join('.') : null;
+		node.name = nameInfo[$-1];
+		state.expectToken(TokenType.tk_semicolon);
+	} else {
+		import std.path : baseName, stripExtension;
+		node.name = state.front.location.file.baseName().stripExtension();
+	}
+	state.pushNode(node);
+	do {
+		node.members ~= state.parseDeclaration();
+	} while (!state.empty);
+	return node;
 }
 
-bool hasPrecedence(uint wanted, uint gotten)
-{
-    return (gotten & wanted) == wanted;
+ImportNode parseImport(ParserState state) {
+	auto node = state.makeNode!ImportNode();
+	auto nameInfo = state.parseList!((ParserState state) => state.expectToken(TokenType.ud_identifier).text)(TokenType.tk_dot);
+	node.packageName = nameInfo.length > 1 ? nameInfo[0..$-1].join('.') : null;
+	node.name = nameInfo[$-1];
+	state.expectToken(TokenType.tk_semicolon);
+	return node;
 }
 
-interface ExpressionNode
-{
-    @property string str();
-    @property string type();
-    @property uint line();
+DefNode parseDef(ParserState state) {
+	auto node = state.makeNode!DefNode();
+	node.name = state.expectToken(TokenType.ud_identifier).text;
+	if (state.popTestToken(TokenType.tk_assign)) node.initializer = state.parseExpression();
+	state.expectToken(TokenType.tk_semicolon);
+	return node;
 }
 
-
-class NumberLit : ExpressionNode
-{
-    string number;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        number = stream.advance().text;
-    }
-    @property string str()
-    {
-        return number;
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    
-    @property string type() { return "number"; }
+FunctionNode parseFunction(ParserState state) {
+	auto node = state.makeNode!FunctionNode();
+	node.name = state.expectToken(TokenType.ud_identifier).text;
+	node.paramaters = state.parseList!(parseFunctionParamater)(TokenType.tk_leftParen, TokenType.tk_rightParen);
+	if (!state.popTestToken(TokenType.tk_semicolon)) node.members = state.parseBlock!(parseStatement)();
+	return node;
 }
 
-class StringLit : ExpressionNode
-{
-    string string_;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        string_ = stream.advance().text;
-    }
-    @property string str()
-    {
-        return '"'~string_~'"';
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "string"; }
+FunctionParamaterNode parseFunctionParamater(ParserState state) {
+	auto node = state.makeNode!FunctionParamaterNode(false);
+	node.name = state.expectToken(TokenType.ud_identifier).text;
+	if (state.popTestToken(TokenType.tk_assign)) node.initializer = state.parseExpression();
+	return node;
 }
 
-class ArrayLit : ExpressionNode
-{
-    ExpressionNode[] elements;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now.line;
-        advanceTest(TokenType.br_ixo,stream);
-        foreach(i;stream.tokens)
-        {
-            elements ~= parseExpression(stream);
-            if (stream.now().type == TokenType.br_ixc)
-            {
-                stream.advance();
-                break;
-            }
-            else advanceTest(TokenType.sy_comma,stream);
-        }
-    }
-    
-    @property string str()
-    {
-        string str = "[";
-        foreach(i,element;elements)
-        {
-            str ~= element.str ~ (i==elements.length-1 ? "]" : ", ");
-        }
-        return str;
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "array"; }
+ClassNode parseClass(ParserState state) {
+	auto node = state.makeNode!ClassNode();
+	node.name = state.expectToken(TokenType.ud_identifier).text;
+	if (state.popTestToken(TokenType.tk_colon)) node.inherits = state.parseList!parseReference(TokenType.tk_comma);
+	if (!state.popTestToken(TokenType.tk_semicolon)) node.members = state.parseBlock!(parseDeclaration)();
+	return node;
 }
 
-class Identifier : ExpressionNode
-{
-    string id;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        id = stream.advance().text;
-    }
-    @property string str()
-    {
-        return id;
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "identifier"; }
+IfNode parseIf(ParserState state) {
+	auto node = state.makeNode!IfNode();
+	state.expectToken(TokenType.tk_leftParen);
+	node.subject = state.parseExpression();
+	state.expectToken(TokenType.tk_rightParen);
+	node.members = state.parseBlock!(parseStatement)();
+	if (state.testToken(TokenType.kw_else)) node.else_ = state.parseElse();
+	return node;
 }
 
-class FunctionCall : ExpressionNode
-{
-    ExpressionNode from;
-    ExpressionNode[] args;
-    uint iline;
-    this(ExpressionNode lhs, TokenStream stream)
-    {
-        iline = lhs.line;
-        from = lhs;
-        advanceTest(TokenType.br_exo,stream);
-        if (stream.now().type == TokenType.br_exc)
-        {
-            stream.advance();
-            return;
-        }
-        foreach(i;stream.tokens)
-        {
-            args ~= parseExpression(stream);
-            if (stream.now().type == TokenType.br_exc)
-            {
-                stream.advance();
-                break;
-            }
-            else advanceTest(TokenType.sy_comma,stream);
-        }
-    }
-    @property string str()
-    {
-        string base = from.str()~"(";
-        foreach(i,arg;args)
-        {
-            base ~= arg.str ~ (i==args.length-1 ? "" : ", ");
-        }
-        return base ~ ")";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "call"; }
+ElseNode parseElse(ParserState state) {
+	auto node = state.makeNode!ElseNode();
+	node.members = state.parseBlock!(parseStatement)();
+	return node;
 }
 
-class BinaryOp : ExpressionNode
-{
-    ExpressionNode lhs, rhs;
-    string op;
-    uint iline;
-    this(ExpressionNode lhs,TokenStream stream)
-    {
-        iline = lhs.line;
-        this.lhs = lhs;
-        this.op = stream.advance().text;
-        this.rhs = parseExpression(stream,
-            Precedence.call | Precedence.dispatch | Precedence.index);
-    }
-    @property string str()
-    {
-        return lhs.str() ~ op ~ rhs.str();
-    }
-    @property uint line()
-    {
-        return iline;
-    }   
-    @property string type() { return "binaryop"; }
+SwitchNode parseSwitch(ParserState state) {
+	auto node = state.makeNode!SwitchNode();
+	state.expectToken(TokenType.tk_leftParen);
+	node.subject = state.parseExpression();
+	state.expectToken(TokenType.tk_rightParen);
+	node.members = state.parseBlock!(parseSwitchCase)();
+	return node;
 }
 
-class Unary : ExpressionNode
-{
-    ExpressionNode rhs;
-    string lhs;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        if (stream.next().type == stream.now().type)
-        {
-            lhs = stream.advance().text;
-        }
-        else
-            lhs = stream.now().text;
-        stream.advance();
-        rhs = parseExpression(stream);
-    }
-    
-    @property string str()
-    {
-        return lhs ~ rhs.str();
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "unary"; }
+SwitchCaseNode parseSwitchCase(ParserState state) {
+	auto node = state.makeNode!SwitchCaseNode();
+	if (state.popTestToken(TokenType.kw_else)) node.isElseCase = true;
+	else node.arguments = state.parseList!(parseExpression)(TokenType.tk_leftParen, TokenType.tk_rightParen);
+	state.expectToken(TokenType.tk_colon);
+	while(!state.testToken(TokenType.kw_case) && !state.testToken(TokenType.tk_rightBrace)) {
+		node.members ~= state.parseBlock!(parseStatement)();
+	}
+	return node;
 }
 
-class UnaryMod : ExpressionNode
-{
-    ExpressionNode lhs;
-    string rhs;
-    uint iline;
-    this(ExpressionNode lhs,TokenStream stream)
-    {
-        iline = lhs.line;
-        this.lhs = lhs;
-        this.rhs = stream.advance().text;
-    }
-    @property string str()
-    {
-        return lhs.str() ~ rhs;
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "unarymod"; }
+ForNode parseFor(ParserState state) {
+	auto node = state.makeNode!ForNode();
+	state.expectToken(TokenType.tk_leftParen);
+	if (state.testToken(TokenType.kw_def)) node.initializer = state.parseDef();
+	else state.expectToken(TokenType.tk_semicolon);
+	if (!state.testToken(TokenType.tk_semicolon)) node.subject = state.parseExpression();
+	state.expectToken(TokenType.tk_semicolon);
+	if (!state.testToken(TokenType.tk_leftParen)) node.step = state.parseExpression();
+	state.expectToken(TokenType.tk_rightParen);
+	node.members = state.parseBlock!(parseStatement)();
+	return node;
 }
 
-class Dispatch : ExpressionNode
-{
-    ExpressionNode lhs;
-    string index;
-    uint iline;
-    this(ExpressionNode lhs, TokenStream stream)
-    {
-        iline = lhs.line;
-        this.lhs = lhs;
-        advanceTest(TokenType.sy_dot,stream);
-        this.index = advanceTest(TokenType.cu_word,stream).text;
-    }
-    @property string str()
-    {
-        return lhs.str() ~ '.' ~ index;
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "dispatch"; }
+ForeachNode parseForeach(ParserState state) {
+	auto node = state.makeNode!ForeachNode();
+	state.expectToken(TokenType.tk_leftParen);
+	node.initializers = state.parseList!(parseDef)(TokenType.tk_comma);
+	state.expectToken(TokenType.tk_semicolon);
+	node.subject = state.parseExpression();
+	state.expectToken(TokenType.tk_rightParen);
+	node.members = state.parseBlock!(parseStatement)();
+	return node;
 }
 
-class Index : ExpressionNode
-{
-    ExpressionNode lhs,index;
-    uint iline;
-    this(ExpressionNode lhs,TokenStream stream)
-    {
-        iline = lhs.line;
-        this.lhs = lhs;
-        advanceTest(TokenType.br_ixo,stream);
-        index = parseExpression(stream);
-        advanceTest(TokenType.br_ixc,stream);
-    }
-    @property string str()
-    {
-        return lhs.str() ~ '[' ~ index.str() ~ "]";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "index"; }
+WhileNode parseWhile(ParserState state) {
+	auto node = state.makeNode!WhileNode();
+	state.expectToken(TokenType.tk_leftParen);
+	node.subject = state.parseExpression();
+	state.expectToken(TokenType.tk_rightParen);
+	node.members = state.parseBlock!(parseStatement)();
+	return node;
 }
 
-class Tinary : ExpressionNode
-{
-    ExpressionNode lhs,ifTrue, ifFalse;
-    uint iline;
-    this(ExpressionNode lhs,TokenStream stream)
-    {
-        iline = lhs.line;
-        this.lhs = lhs;
-        advanceTest(TokenType.sy_tinary,stream);
-        ifTrue = parseExpression(stream);
-        advanceTest(TokenType.sy_colan,stream);
-        ifFalse = parseExpression(stream);
-    }
-    @property string str()
-    {
-        return lhs.str() ~ '?' ~ ifTrue.str ~ ':' ~ ifFalse.str;
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "tinary"; }
+WithNode parseWith(ParserState state) {
+	auto node = state.makeNode!WithNode();
+	state.expectToken(TokenType.tk_leftParen);
+	node.subject = state.parseExpression();
+	state.expectToken(TokenType.tk_rightParen);
+	node.members = state.parseBlock!(parseStatement)();
+	return node;
 }
 
-class Bracketed : ExpressionNode
-{
-    ExpressionNode contained;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.br_exo,stream);
-        contained = parseExpression(stream);
-        advanceTest(TokenType.br_exc,stream);
-    }
-    @property string str()
-    {
-        return '(' ~ contained.str() ~ ')';
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "bracketed"; }
+DoWhileNode parseDoWhile(ParserState state) {
+	auto node = state.makeNode!DoWhileNode();
+	node.members = state.parseBlock!(parseStatement)();
+	state.expectToken(TokenType.kw_while);
+	state.expectToken(TokenType.tk_leftParen);
+	node.subject = state.parseExpression();
+	state.expectToken(TokenType.tk_rightParen);
+	return node;
 }
 
-class New : ExpressionNode
-{
-    string what;
-    ExpressionNode[] args;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now.line;
-        advanceTest(TokenType.kw_new,stream);
-        what = advanceTest(TokenType.cu_word,stream).text;
-        advanceTest(TokenType.br_exo,stream);
-        if (stream.now().type == TokenType.br_exc)
-        {
-            stream.advance();
-            return;
-        }
-        foreach(i;stream.tokens)
-        {
-            args ~= parseExpression(stream);
-            if (stream.now().type == TokenType.br_exc)
-            {
-                stream.advance();
-                break;
-            }
-            else advanceTest(TokenType.sy_comma,stream);
-        }
-    }
-    @property string str()
-    {
-        string base = "new "~what~"(";
-        foreach(i,arg;args)
-        {
-            base ~= arg.str ~ (i==args.length-1 ? "" : ", ");
-        }
-        return base ~ ")";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "new"; }
+BreakNode parseBreak(ParserState state) {
+	auto node = state.makeNode!BreakNode();
+	state.expectToken(TokenType.tk_semicolon);
+	return node;
 }
 
-class Assign : ExpressionNode
-{
-    ExpressionNode what;
-    ExpressionNode assign;
-    uint iline;
-    this(ExpressionNode lhs,TokenStream stream)
-    {
-        iline = lhs.line;
-        if (lhs.type != "identifier" &&
-            lhs.type != "index" &&
-            lhs.type != "dispatch")
-            throw new ParserException(
-                "%s is not an lvalue\nat line: %s"
-                ,lhs.str,iline);
-        what = lhs;
-        advanceTest(TokenType.sy_ass,stream);
-        assign = parseExpression(stream);
-    }
-    @property string str()
-    {
-        return what.str() ~ " = " ~assign.str();
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-    @property string type() { return "assign"; }
+ContinueNode parseContinue(ParserState state) {
+	auto node = state.makeNode!ContinueNode();
+	state.expectToken(TokenType.tk_semicolon);
+	return node;
 }
 
-ExpressionNode parseExpression(TokenStream stream, int prec = Precedence.all)
-{
-    if (stream.tryNow() is null)
-        throw new ParserException("Unexpected end of expression a line %s",
-            stream.now.line);
-    switch(stream.now().type)
-    {
-        case TokenType.cu_number:
-            return forward(new NumberLit(stream),stream,prec);
-        case TokenType.cu_string:
-            return forward(new StringLit(stream),stream,prec);
-        case TokenType.br_ixo:
-            return forward(new ArrayLit(stream),stream,prec);
-        case TokenType.cu_word:
-            return forward(new Identifier(stream),stream,prec);
-        case TokenType.op_add:
-        case TokenType.op_sub:
-        case TokenType.op_inc:
-        case TokenType.op_dec:
-        case TokenType.lo_not:
-            return forward(new Unary(stream),stream,prec);
-        case TokenType.br_exo:
-            return forward(new Bracketed(stream),stream,prec);
-        case TokenType.kw_new:
-            return forward(new New(stream),stream,prec);
-        default:
-            throw new ParserException(
-                "Expected expression got %s\nat line: %s",stream.now.text,stream.now.line);
-    }
+ReturnNode parseReturn(ParserState state) {
+	auto node = state.makeNode!ReturnNode();
+	if (!state.popTestToken(TokenType.tk_semicolon)) {
+		node.subject = state.parseExpression();
+		state.expectToken(TokenType.tk_semicolon);
+	}
+	return node;
 }
 
-ExpressionNode forward(ExpressionNode lhs, TokenStream stream, int prec = Precedence.all)
-{
-    if (stream.tryNow() is null)
-        return lhs;
-    switch(stream.now().type)
-    {
-        case TokenType.br_exo:
-            if (!hasPrecedence(Precedence.call,prec))
-                return lhs;
-            else
-                return forward(new FunctionCall(lhs,stream),stream,);
-        case TokenType.op_inc:
-        case TokenType.op_dec:
-            if (!hasPrecedence(Precedence.call,prec))
-                return lhs;
-            else
-                return forward(new UnaryMod(lhs,stream),stream);
-        case TokenType.op_add:
-        case TokenType.op_sub:
-        case TokenType.op_mul:
-        case TokenType.op_div:
-        case TokenType.op_mod:
-        case TokenType.sy_gr:
-        case TokenType.sy_le:
-        case TokenType.sy_eq:
-        case TokenType.sy_gre:
-        case TokenType.sy_lee:
-        case TokenType.sy_neq:
-        case TokenType.lo_and:
-        case TokenType.lo_or:
-            if (!hasPrecedence(Precedence.operate,prec))
-                return lhs;
-            else
-                return forward(new BinaryOp(lhs,stream),stream);
-        case TokenType.br_ixo:
-            if (!hasPrecedence(Precedence.index,prec))
-                return lhs;
-            else
-                return forward(new Index(lhs,stream),stream);
-        case TokenType.sy_tinary:
-            return forward(new Tinary(lhs,stream),stream);
-        case TokenType.sy_dot:
-            if (!hasPrecedence(Precedence.dispatch,prec))
-                return lhs;
-            else
-                return forward(new Dispatch(lhs,stream),stream);
-        case TokenType.sy_ass:
-                return forward(new Assign(lhs,stream),stream);
-        default:
-            return lhs;
-    }
+DeclarationNode parseDeclaration(ParserState state) {
+	doNextNode: switch(state.front.type) with(TokenType) {
+		case kw_import: return state.parseImport();
+		case kw_class: return state.parseClass();
+		case kw_function: return state.parseFunction();
+		case kw_def: return state.parseDef();
+		case tk_at: state.parseAttributes(); goto doNextNode;
+		default: throw new ParserException(format("Unrecognized declaration %s.", state.front.text), state.front.location);
+	}
 }
 
-Token nowTest(TokenType expected,TokenStream stream)
-{
-        if (stream.tryNow() is null)
-        throw new ParserException("expected %s but got <EOF>",
-                ErrorMap[expected]);
-    else if (stream.tryNow().type != expected)
-        throw new ParserException("expected %s but got %s\nat line: %s",
-                ErrorMap[expected],
-                ErrorMap[stream.now().type],
-                stream.tryNow.line);
-    else
-        return stream.tryNow();
+StatementNode parseStatement(ParserState state) {
+	doNextNode: switch(state.front.type) with(TokenType) {
+		case kw_import: return state.parseImport();
+		case kw_class: return state.parseClass();
+		case kw_function: return state.parseFunction();
+		case kw_def: return state.parseDef();
+		case kw_if: return state.parseIf();
+		case tk_at: state.parseAttributes(); goto doNextNode;
+		case kw_while: return state.parseWhile();
+		case kw_with: return state.parseWith();
+		case kw_do: return state.parseDoWhile();
+		case kw_for: return state.parseFor();
+		case kw_foreach: return state.parseForeach();
+		case kw_switch: return state.parseSwitch();
+		case kw_break: return state.parseBreak();
+		case kw_continue: return state.parseContinue();
+		case kw_return: return state.parseReturn();
+		default: 
+			auto node = state.makeNode!ExpressionStatementNode(false);
+			node.subject = state.parseExpression();
+			state.expectToken(TokenType.tk_semicolon);
+			return node;
+	}
 }
 
-Token advanceTest(TokenType expected,TokenStream stream)
-{
-        if (stream.tryNow() is null)
-            throw new ParserException("expected %s but got <EOF>",
-                ErrorMap[expected]);
-        else if (stream.tryNow().type != expected)
-            throw new ParserException("expected %s but got %s\nat line: %s",
-                ErrorMap[expected],
-                ErrorMap[stream.now().type],
-                stream.tryNow.line);
-    else
-        return stream.tryAdvance();
+ExpressionNode parseExpression(ParserState state, OperatorPrecedence precedence = OperatorPrecedence.max) {
+	ExpressionNode expression;
+
+	nextExpression: switch(state.front.type) with(TokenType) {
+		case ud_identifier:
+			auto node = state.makeNode!IdentifierNode(false);
+			node.identifier = state.popFront().text;
+			expression = node;
+			break;
+		case ud_string:
+			auto node = state.makeNode!StringLiteralNode(false);
+			node.value = state.popFront().text;
+			expression = node;
+			break;
+		case ud_integer:
+			auto node = state.makeNode!IntegerLiteralNode(false);
+			node.value = state.popFront().text;
+			expression = node;
+			break;
+		case ud_float:
+			auto node = state.makeNode!FloatLiteralNode(false);
+			node.value = state.popFront().text;
+			expression = node;
+			break;
+		case tk_leftBracket:
+			auto node = state.makeNode!ArrayLiteralNode(false);
+			node.value = state.parseList!(parseExpression)(TokenType.tk_leftBracket, TokenType.tk_rightBracket);
+			expression = node;
+			break;
+		case tk_increment, tk_decrement:
+			auto node = state.makeNode!UnaryNode(false);
+			node.operator = cast(UnaryNode.Operator)state.popFront().type;
+			node.subject = state.parseExpression(OperatorPrecedence.unary1);
+			expression = node;
+			break;
+		case tk_plus, tk_minus:
+			auto node = state.makeNode!UnaryNode(false);
+			node.operator = cast(UnaryNode.Operator)state.popFront().type;
+			node.subject = state.parseExpression(OperatorPrecedence.unary2);
+			expression = node;
+			break;
+		case tk_not, tk_tilde:
+			auto node = state.makeNode!UnaryNode(false);
+			node.operator = cast(UnaryNode.Operator)state.popFront().type;
+			node.subject = state.parseExpression(OperatorPrecedence.unary3);
+			expression = node;
+			break;
+		case kw_new:
+			auto node = state.makeNode!NewNode();
+			state.expectToken(TokenType.tk_colon);
+			node.type = state.parseReference(OperatorPrecedence.resolution2);
+			node.arguments = state.parseList!(parseExpression)(TokenType.tk_leftParen, TokenType.tk_rightParen);
+			expression = node;
+			break;
+		case tk_at:
+			state.parseAttributes();
+			goto nextExpression;
+		default:
+			throw new ParserException(format("Unrecognized expresssion %s", state.front.text), state.front.location);
+	}
+
+	nextSubExpression: switch(state.front.type) with(TokenType) {
+		case tk_asterick, tk_slash, tk_power, tk_percent:
+			if (OperatorPrecedence.arithmatic1 > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.arithmatic1);
+			expression = node;
+			goto nextSubExpression;
+		case tk_greaterThan, tk_lessThan, tk_greaterThanEqual, tk_lessThanEqual:
+			if (OperatorPrecedence.relational > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.relational);
+			expression = node;
+			goto nextSubExpression;
+		case tk_equal, tk_notEqual:
+			if (OperatorPrecedence.equity > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.equity);
+			expression = node;
+			goto nextSubExpression;
+		case tk_shiftLeft, tk_shiftRight:
+			if (OperatorPrecedence.binaryShift > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.binaryShift);
+			expression = node;
+			goto nextSubExpression;
+		case tk_tilde, tk_slice:
+			if (OperatorPrecedence.range > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.range);
+			expression = node;
+			goto nextSubExpression;
+		case tk_plus, tk_minus:
+			if (OperatorPrecedence.arithmatic2 > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.arithmatic2);
+			expression = node;
+			goto nextSubExpression;
+		case tk_ampersand:
+			if (OperatorPrecedence.binaryAnd > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.binaryAnd);
+			expression = node;
+			goto nextSubExpression;
+		case tk_poll:
+			if (OperatorPrecedence.binaryOr > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.binaryOr);
+			expression = node;
+			goto nextSubExpression;
+		case tk_hash:
+			if (OperatorPrecedence.binaryXor > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.binaryXor);
+			expression = node;
+			goto nextSubExpression;
+		case tk_logicalAnd:
+			if (OperatorPrecedence.logicalAnd > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.logicalAnd);
+			expression = node;
+			goto nextSubExpression;
+		case tk_logicalOr:
+			if (OperatorPrecedence.logicalOr > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.logicalOr);
+			expression = node;
+			goto nextSubExpression;
+		case tk_logicalXor:
+			if (OperatorPrecedence.logicXor > precedence) break;
+			auto node = state.makeNode!BinaryNode(false);
+			node.lhs = expression;
+			node.operator = cast(BinaryNode.Operator)state.popFront().type;
+			node.rhs = state.parseExpression(OperatorPrecedence.logicXor);
+			expression = node;
+			goto nextSubExpression;
+		case tk_question:
+			if (OperatorPrecedence.tinary > precedence) break;
+			auto node = state.makeNode!TinaryNode();
+			node.subject = expression;
+			state.expectToken(TokenType.tk_leftParen);
+			node.lhs = state.parseExpression();
+			state.expectToken(TokenType.tk_rightParen);
+			state.expectToken(TokenType.tk_colon);
+			state.expectToken(TokenType.tk_leftParen);
+			node.rhs = state.parseExpression();
+			state.expectToken(TokenType.tk_rightParen);
+			expression = node;
+			goto nextSubExpression;
+		case TokenType.tk_leftParen:
+			if (OperatorPrecedence.paramatized > precedence) break;
+			auto node = state.makeNode!FunctionCallNode(false);
+			node.subject = expression;
+			node.arguments = state.parseList!(parseExpression)(TokenType.tk_leftParen, TokenType.tk_rightParen);
+			expression = node;
+			goto nextSubExpression;
+		case TokenType.tk_leftBracket:
+			if (OperatorPrecedence.paramatized > precedence) break;
+			auto node = state.makeNode!SubscriptNode(false);
+			node.subject = expression;
+			node.arguments = state.parseList!(parseExpression)(TokenType.tk_leftBracket, TokenType.tk_rightBracket);
+			expression = node;
+			goto nextSubExpression;
+		case tk_assign, tk_assignAdd, tk_assignSubtract, tk_assignMultiply, tk_assignDivide, tk_assignModulo, tk_assignPower,
+		tk_assignConcat, tk_assignAnd, tk_assignOr, tk_assignXor:
+			if (OperatorPrecedence.assignment > precedence) break;
+			auto node = state.makeNode!AssignmentNode(false);
+			node.subject = expression;
+			node.operator = cast(AssignmentNode.Operator)state.popFront().type;
+			node.argument = state.parseExpression(OperatorPrecedence.assignment);
+			expression = node;
+			goto nextSubExpression;
+		case tk_dot:
+			if (OperatorPrecedence.resolution1 > precedence) break;
+			auto node = state.makeNode!DispatchNode();
+			node.subject = expression;
+			node.identifier = state.expectToken(TokenType.ud_identifier).text;
+			expression = node;
+			goto nextSubExpression;
+		case tk_increment, tk_decrement:
+			if (OperatorPrecedence.unary4 > precedence) break;
+			auto node = state.makeNode!UnaryNode(false);
+			node.subject = expression;
+			node.operator = state.popFront().type == tk_increment ? UnaryNode.Operator.increment : UnaryNode.Operator.decrement;
+			expression = node;
+			goto nextSubExpression;
+		default:
+			break;
+	}
+	return expression;
 }
 
-interface ParserNode
-{
-    @property string str();
-    @property string type();
-    @property uint line();
+ReferenceNode parseReference(ParserState state, OperatorPrecedence precedence = OperatorPrecedence.max) {
+	ReferenceNode reference;
+
+	nextReference: switch(state.front.type) with(TokenType) {
+		case ud_identifier:
+			auto node = state.makeNode!IdentifierNode(false);
+			node.identifier = state.popFront().text;
+			reference = node;
+			break;
+		default:
+			throw new ParserException(format("Unrecognized expresssion %s", state.front.text), state.front.location);
+	}
+
+	nextSubReference: switch(state.front.type) with(TokenType) {
+		case tk_dot:
+			if (OperatorPrecedence.resolution1 > precedence) break;
+			auto node = state.makeNode!DispatchNode();
+			node.subject = reference;
+			node.identifier = state.expectToken(TokenType.ud_identifier).text;
+			reference = node;
+			goto nextSubReference;
+		default:
+			break;
+	}
+	return reference;
 }
 
-class Pragma : ParserNode
-{
-    string pragma_;
-    string flag;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now.line;
-        advanceTest(TokenType.kw_pragma,stream);
-        advanceTest(TokenType.br_exo,stream);
-        pragma_ = advanceTest(TokenType.cu_word,stream).text;
-        advanceTest(TokenType.sy_comma,stream);
-        flag = advanceTest(TokenType.cu_string,stream).text;
-        advanceTest(TokenType.br_exc,stream);
-    }
-    @property string str()
-    {
-        return "pragma("~pragma_~","~flag~")";
-    }
-    @property string type()
-    {
-        return "pragma";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
+void parseAttributes(ParserState state) {
+	while(!state.empty && state.front.type == TokenType.tk_at) {
+		auto node = new AttributeNode;
+		node.location = state.expectToken(TokenType.tk_at).location;
+		node.parent = state.peekNode();
+		if (state.popTestToken(TokenType.kw_module)) node.name = "module";
+		else node.name = state.expectToken(TokenType.ud_identifier).text;
+		if (state.testToken(TokenType.tk_leftParen)) {
+			node.arguments = state.parseList!(parseExpression)(TokenType.tk_leftParen, TokenType.tk_rightParen);
+		}
+		state.attributes ~= node;
+	}
 }
 
-class Expression : ParserNode
-{
-    ExpressionNode exp;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        exp = parseExpression(stream);
-    }
-    @property string str()
-    {
-        return exp.str();
-    }
-    @property string type()
-    {
-        return "expression";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
+auto parseBlock(alias parseFun)(ParserState state) {
+	ReturnType!(parseFun)[] result;
+	if(state.popTestToken(TokenType.tk_leftBrace)) {
+		if (state.popTestToken(TokenType.tk_rightBrace)) return result;
+		do {
+			result ~= parseFun(state);
+		} while (!state.empty && !state.testToken(TokenType.tk_rightBrace));
+		state.expectToken(TokenType.tk_rightBrace);
+	} else {
+		result ~= parseFun(state);
+	}
+	return result;
 }
 
-class If : ParserNode
-{
-    Expression cond;
-    Block then;
-    Block else_;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_if,stream);
-        advanceTest(TokenType.br_exo,stream);
-        cond = new Expression(stream);
-        advanceTest(TokenType.br_exc,stream);
-        then = new Block(stream);
-        if (stream.tryNow() !is null && stream.now().type == TokenType.kw_else)
-        {
-            stream.advance();
-            else_ = new Block(stream);
-        }
-    }
-    @property string str()
-    {
-        return "if " ~ cond.str() ~ '\n'~ then.str() ~
-            (else_ !is null ? " else\n" ~ else_.str() : "");
-    }
-    @property string type()
-    {
-        return "if";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
+auto parseList(alias parseFun)(ParserState state, TokenType left, TokenType right) {
+	ReturnType!(parseFun)[] result;
+	state.expectToken(left);
+	if (state.popTestToken(right)) return result;
+	do {
+		result ~= parseFun(state);
+	} while(state.popTestToken(TokenType.tk_comma));
+	state.popTestToken(TokenType.tk_comma);
+	state.expectToken(right);
+	return result;
 }
 
-class For : ParserNode
-{
-    Def var;
-    Expression cond;
-    Expression step;
-    Block loop;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_for,stream);
-        advanceTest(TokenType.br_exo,stream);
-        var = new Def(stream);
-        advanceTest(TokenType.sy_term,stream);
-        cond = new Expression(stream);
-        advanceTest(TokenType.sy_term,stream);
-        step = new Expression(stream);
-        advanceTest(TokenType.br_exc,stream);
-        loop = new Block(stream);
-    }
-    @property string str()
-    {
-        return "for " ~ var.str() ~ ';' ~ cond.str() ~ ';' ~ step.str()
-            ~ '\n' ~ loop.str();
-    }
-    @property string type()
-    {
-        return "for";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
+auto parseList(alias parseFun)(ParserState state, TokenType delimiter) {
+	ReturnType!(parseFun)[] result;
+	do {
+		result ~= parseFun(state);
+	} while(state.popTestToken(delimiter));
+	return result;
 }
 
-class Foreach : ParserNode
-{
-    string init;
-    Expression iterator;
-    Block loop;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_foreach,stream);
-        advanceTest(TokenType.br_exo,stream);
-        init = advanceTest(TokenType.cu_word,stream).text;
-        advanceTest(TokenType.sy_term,stream);
-        iterator = new Expression(stream);
-        advanceTest(TokenType.br_exc,stream);
-        loop = new Block(stream);
-    }
-    @property string str()
-    {
-        return "foreach" ~ init ~ ';' ~ iterator.str() ~ '\n' ~ loop.str();
-    }
-    @property string type()
-    {
-        return "foreach";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
+enum OperatorPrecedence {
+	reserved,
+	resolution1,
+	resolution2,
+	paramatized,
+	unary1,
+	unary2,
+	unary3,
+	unary4,
+	arithmatic1,
+	arithmatic2,
+	range,
+	binaryShift,
+	binaryAnd,
+	binaryOr,
+	binaryXor,
+	logicalAnd,
+	logicalOr,
+	logicXor,
+	equity,
+	inequity,
+	relational,
+	tinary,
+	assignment,
 }
 
-class Until : ParserNode
-{
-    Expression cond;
-    Block loop;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_do,stream);
-        loop = new Block(stream);
-        advanceTest(TokenType.kw_until,stream);
-        advanceTest(TokenType.br_exo,stream);
-        cond = new Expression(stream);
-        advanceTest(TokenType.br_exc,stream);
-    }
-    @property string str()
-    {
-        return "do\n"~loop.str()~"\nuntil "~cond.str();
-    }
-    @property string type()
-    {
-        return "until";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
+class ParserState {
+	Token[] tokens;
+	size_t position;
+	DList!ASTNode parents;
+	AttributeNode[] attributes;
+
+	this(Token[] tokens) {
+		this.tokens = tokens;
+	}
+
+	@property bool empty() {
+		return position >= tokens.length-1; //EOF
+	}
+
+	@property size_t length() {
+		return tokens.length - position;
+	}
+
+	@property Token front() {
+		return tokens[position];
+	}
+
+	Token popFront() {
+		return tokens[position++];
+	}
+
+	Token[] frontN(size_t amount) {
+		import std.algorithm : min;
+		return tokens[position..min(position+amount, $)];
+	}
+
+	Token[] popFrontN(size_t amount) {
+		auto result = this.frontN(amount);
+		position += result.length;
+		return result;
+	}
+
+	void pushNode(ASTNode node) {
+		parents.insertFront(node);
+	}
+
+	ASTNode peekNode() {
+		return parents.front;
+	}
+
+	ASTNode popNode() {
+		auto result = parents.front;
+		parents.removeFront();
+		return result;
+	}
+
+	bool testToken(TokenType tokenType) {
+		return this.front.type == tokenType;
+	}
+
+	bool popTestToken(TokenType tokenType) {
+		if (this.front.type == tokenType) {
+			this.popFront();
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	Token expectToken(TokenType tokenType) {
+		if (this.front.type == tokenType) return this.popFront();
+		else throw new ParserException(format("Expected %s, got '%s'", tokenDescriptionMap[tokenType], front.text), front.location);
+	}
+
+	Type makeNode(Type)(bool popNextToken = true) {
+		auto node = new Type;
+		node.location = this.front.location;
+		node.attributes = this.attributes;
+		this.attributes = [];
+		node.parent = this.peekNode();
+		if (popNextToken) this.popFront();
+		return node;
+	}
 }
 
-class While : ParserNode
-{
-    Expression cond;
-    Block loop;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_while,stream);
-        advanceTest(TokenType.br_exo,stream);
-        cond = new Expression(stream);
-        advanceTest(TokenType.br_exc,stream);
-        loop = new Block(stream);
-    }
-    @property string str()
-    {
-        return "while "~cond.str~'\n'~loop.str;
-    }
-    @property string type()
-    {
-        return "while";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class Def : ParserNode
-{
-    string name;
-    Expression initializer;
-    bool isStatic;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        if (stream.now().type == TokenType.kw_static)
-        {
-            isStatic = true;
-            stream.advance();
-        }
-        advanceTest(TokenType.kw_def,stream);
-        name = advanceTest(TokenType.cu_word,stream).text;
-        if (stream.tryNow() !is null && stream.now().type == TokenType.sy_ass)
-        {
-            stream.advance();
-            initializer = new Expression(stream);
-        }
-    }
-    @property string str()
-    {
-        return "def "~name~(initializer !is null ? '=' ~ initializer.str : "");
-    }
-    @property string type()
-    {
-        return "def";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class Param : ParserNode
-{
-    string name;
-    Expression initializer;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        name = advanceTest(TokenType.cu_word,stream).text;
-        if (stream.advance().type == TokenType.sy_ass)
-            initializer = new Expression(stream);
-        else
-            stream.retreat();
-    }
-    @property string str()
-    {
-        return name~(initializer !is null ? '=' ~ initializer.str : "");
-    }
-    @property string type()
-    {
-        return "param";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class Class : ParserNode
-{
-    string name;
-    string[] parents;
-    ClassBlock cBlock;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_class,stream);
-        name = advanceTest(TokenType.cu_word,stream).text;
-        if (stream.now().type == TokenType.kw_inherits)
-        {
-            stream.advance();
-            parents ~= advanceTest(TokenType.cu_word,stream).text;
-            while(true)
-            {
-                if (stream.now().type == TokenType.sy_comma)
-                {
-                    stream.advance();
-                    parents ~= advanceTest(TokenType.cu_word,stream).text;
-                }
-                else
-                {
-                    break;
-                }
-            }
-        }
-        cBlock = new ClassBlock(stream);
-    }
-    @property string str()
-    {
-        return "class " ~ name ~ " inherits "~to!string(parents)~'\n'~
-            cBlock.str();
-    }
-    @property string type()
-    {
-        return "class";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class Interface_ : ParserNode
-{
-    InterfaceBlock iBlock;
-    string name;
-    string[] parents;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_interface,stream);
-        name = advanceTest(TokenType.cu_word,stream).text;
-        if (stream.now().type == TokenType.kw_inherits)
-        {
-            stream.advance();
-            parents ~= advanceTest(TokenType.cu_word,stream).text;
-            while(true)
-            {
-                if (stream.advance().type == TokenType.sy_comma)
-                {
-                    parents ~= advanceTest(TokenType.cu_word,stream).text;
-                }
-                else
-                {
-                    stream.retreat();
-                    break;
-                }
-            }
-        }
-        iBlock = new InterfaceBlock(stream);
-    }
-    @property string str()
-    {
-        return "interface " ~ name ~ " inherits "~to!string(parents)~'\n'~
-            iBlock.str();
-    }
-    @property string type()
-    {
-        return "interface";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class Function : ParserNode
-{
-    string name;
-    Param[] args;
-    Block func;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_function,stream);
-        name = advanceTest(TokenType.cu_word,stream).text;
-        advanceTest(TokenType.br_exo,stream);
-        if (stream.now().type != TokenType.br_exc)
-            args ~= new Param(stream);
-        while(true)
-        {
-            if (stream.now().type == TokenType.br_exc)
-                break;
-            else if (stream.now().type == TokenType.sy_comma)
-                args ~= new Param(stream);
-        }
-        advanceTest(TokenType.br_exc,stream);
-        func = new Block(stream);
-    }
-    @property string str()
-    {
-        return "function "~name~to!string(args)~'\n'~func.str();
-    }
-    @property string type()
-    {
-        return "function";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class Return : ParserNode
-{
-    Expression return_;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_return,stream);
-        if (stream.now().type != TokenType.sy_term)
-            return_ = new Expression(stream);
-    }
-    @property string str()
-    {
-        return "return " ~ (return_ !is null ? return_.str() : "");
-    }
-    @property string type()
-    {
-        return "return";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class Break : ParserNode
-{
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_break,stream);
-    }
-    @property string str()
-    {
-        return "break";
-    }
-    @property string type()
-    {
-        return "break";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-class Jump : ParserNode
-{
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_jump,stream);
-    }
-    @property string str()
-    {
-        return "jump";
-    }
-    @property string type()
-    {
-        return "jump";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class Block : ParserNode
-{
-    ParserNode[] body_;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        if (stream.now().type == TokenType.br_blo)
-        {
-            stream.advance();
-            while(stream.now().type != TokenType.br_blc)
-            {
-                body_ ~= statement(stream);
-            }
-            stream.advance();
-        }
-        else
-           body_ ~= statement(stream);
-    }
-    @property string str()
-    {
-        string result = "{\n";
-        foreach(line;body_)
-            result ~= line.str() ~ '\n';
-        return result ~ "}";
-    }
-    @property string type()
-    {
-        return "block";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class ClassBlock : ParserNode
-{
-    ParserNode[] members;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        if (stream.advance().type == TokenType.br_blo)
-        {
-            while(stream.now().type != TokenType.br_blc)
-            {
-                next(stream);
-            }
-        }
-        else
-            next(stream);
-    }
-    void next(TokenStream stream)
-    {
-        switch(stream.now().type)
-        {
-            case TokenType.kw_function:
-                members ~= new Function(stream);
-                break;
-            case TokenType.kw_def:
-                members ~= new Def(stream);
-                advanceTest(TokenType.sy_term,stream);
-                break;
-            default:
-                throw new ParserException(
-                    "unrecognised decleration "~stream.now().text);
-        }
-    }
-    @property string str()
-    {
-        string result = "{\n";
-        foreach(line;members)
-            result ~= line.str() ~ '\n';
-        return result ~ "}";
-    }
-    @property string type()
-    {
-        return "classblock";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class InterfaceBlock : ParserNode
-{
-    FunctionPrototype[] members;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        if (stream.advance().type == TokenType.br_blo)
-        {
-            while(stream.now().type != TokenType.br_blc)
-            {
-                next(stream);
-            }
-        }
-        else
-           next(stream);
-    }
-    void next(TokenStream stream)
-    {
-        switch(stream.now().type)
-        {
-            case TokenType.kw_function:
-                members ~= new FunctionPrototype(stream);
-                advanceTest(TokenType.sy_term,stream);
-                break;
-            default:
-                throw new ParserException(
-                    "unrecognised decleration "~stream.now().text);
-        }
-    }
-    @property string str()
-    {
-        string result = "{\n";
-        foreach(line;members)
-            result ~= line.str() ~ '\n';
-        return result ~ "}";
-    }
-    @property string type()
-    {
-        return "interfaceblock";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class FunctionPrototype : ParserNode
-{
-    string name;
-    Param[] args;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_function,stream);
-        name = advanceTest(TokenType.cu_word,stream).text;
-        advanceTest(TokenType.br_exo,stream);
-        if (stream.now().type != TokenType.br_exc)
-            args ~= new Param(stream);
-        while(true)
-        {
-            if (stream.now().type == TokenType.br_exc)
-                break;
-            else if (stream.now().type == TokenType.sy_comma)
-                args ~= new Param(stream);
-        }
-        advanceTest(TokenType.br_exc,stream);
-    }
-    @property string str()
-    {
-        return "function "~name~to!string(args);
-    }
-    @property string type()
-    {
-        return "protofunction";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-class Import : ParserNode
-{
-    string importee;
-    uint iline;
-    this(TokenStream stream)
-    {
-        iline = stream.now().line;
-        advanceTest(TokenType.kw_import,stream);
-        while(true)
-        {
-            auto now = stream.now();
-            if (now.type == TokenType.cu_word || now.type == TokenType.sy_dot)
-            {
-                importee~=now.text;
-                stream.advance();
-            }
-            else
-                break;
-        }
-    }
-    @property string str()
-    {
-        return "import " ~ importee;
-    }
-    @property string type()
-    {
-        return "import";
-    }
-    @property uint line()
-    {
-        return iline;
-    }
-}
-
-DList!ParserNode parse(TokenStream stream)
-{
-    DList!ParserNode result;
-    while(stream.tryNow() !is null)
-    {
-        result.insertBack(statement(stream));
-    }
-    return result;
-}
-
-ParserNode statement(TokenStream stream)
-{
-    ParserNode result;
-    switch(stream.now().type)
-    {
-        case TokenType.kw_pragma:
-            result = new Pragma(stream);
-            advanceTest(TokenType.sy_term,stream);
-            break;
-        case TokenType.kw_if:
-            result = new If(stream);
-            break;
-        case TokenType.kw_for:
-            result = new For(stream);
-            break;
-        case TokenType.kw_foreach:
-            result = new Foreach(stream);
-            break;
-        case TokenType.kw_until:
-            result = new Until(stream);
-            break;
-        case TokenType.kw_while:
-            result = new While(stream);
-            break;
-        case TokenType.kw_do:
-            result = new Until(stream);
-            break;
-        case TokenType.kw_def:
-        case TokenType.kw_static:
-            result = new Def(stream);
-            advanceTest(TokenType.sy_term,stream);
-            break;
-        case TokenType.kw_class:
-            result = new Class(stream);
-            break;
-        case TokenType.kw_interface:
-            result = new Interface_(stream);
-            break;
-        case TokenType.kw_function:
-            result = new Function(stream);
-            break;
-        case TokenType.kw_return:
-            result = new Return(stream);
-            advanceTest(TokenType.sy_term,stream);
-            break;
-        case TokenType.kw_break:
-            result = new Break(stream);
-            advanceTest(TokenType.sy_term,stream);
-            break;
-        case TokenType.kw_jump:
-            result = new Jump(stream);
-            advanceTest(TokenType.sy_term,stream);
-            break;
-        case TokenType.kw_import:
-            result = new Import(stream);
-            advanceTest(TokenType.sy_term,stream);
-            break;
-        default:
-            result = new Expression(stream);
-            advanceTest(TokenType.sy_term,stream);
-            break;
-    }
-    return result;
+class ParserException : Exception {
+	this(string msg, SourceLocation location, string file = __FILE__, size_t line = __LINE__) {
+		super(msg ~ " in " ~ location.toString(), file, line);
+	}
 }

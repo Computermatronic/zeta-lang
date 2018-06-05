@@ -1,0 +1,9 @@
+{
+	"name": "zeta-lang",
+	"authors": [
+		"Sean Campbell"
+	],
+	"description": "A scripting language written in dlang.",
+	"copyright": "Copyright © 2018, Sean Campbell",
+	"license": "MIT"
+}
