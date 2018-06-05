@@ -7,9 +7,10 @@
  */
 module zeta.runtime.null_t;
 
-import zeta.runtime.type;
-import zeta.runtime.interpreter;
-import zeta.runtime.natives.types;
+
+import zeta.interpreter.type;
+import zeta.interpreter.core;
+import zeta.runtime;
 
 class NullType : Type {
 	Interpreter interpreter;

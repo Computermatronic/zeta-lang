@@ -7,12 +7,11 @@
  */
 module zeta.interpreter.type;
 
-import zeta.runtime.core;
+import zeta.interpreter.core;
 
 struct Value {
 	ushort typeID;
 	union {
-
 		struct {
 			void* ptr1;
 			void* ptr2;

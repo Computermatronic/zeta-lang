@@ -200,7 +200,7 @@ class DummyVisitor : ASTVisitor {
 				break;
 			
 			case subtract:
-				break
+				break;
 				
 			case bitwiseShiftLeft:
 				break;
@@ -266,7 +266,7 @@ class DummyVisitor : ASTVisitor {
 		node.subject.accept(this);
 		
 		foreach(argument; node.arguments) {
-			arguemnt.accept(this);
+			argument.accept(this);
 		}
 	}
 	
@@ -274,7 +274,7 @@ class DummyVisitor : ASTVisitor {
 		node.type.accept(this);
 		
 		foreach(argument; node.arguments) {
-			arguemnt.accept(this);
+			argument.accept(this);
 		}
 	}
 	
@@ -338,14 +338,14 @@ class DummyVisitor : ASTVisitor {
 	}
 	
 	void visit(DispatchNode node) {
-		subject.accept(this);
+		node.subject.accept(this);
 	}
 	
 	void visit(SubscriptNode node) {
 		node.subject.accept(this);
 		
 		foreach(argument; node.arguments) {
-			arguemnt.accept(this);
+			argument.accept(this);
 		}
 	}
 }

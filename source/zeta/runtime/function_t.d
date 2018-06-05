@@ -8,20 +8,19 @@
  module zeta.runtime.function_t;
 
 import zeta.interpreter.type;
-import zeta.interpreter.interpreter;
-import zeta.runtime.types;
+import zeta.interpreter.core;
+import zeta.runtime;
 
-class NullType : Type {
+import zeta.parser.ast;
+import zeta.interpreter.context;
+
+class FunctionType : Type {
 	Interpreter interpreter;
 	ushort typeID;
-
-	Value nullValue;
 
 	void initialize(Interpreter interpreter, ushort typeID) {
 		this.interpreter = interpreter;
 		this.typeID = typeID;
-
-		nullValue = make();
 	}
 
 	void finalize() {
@@ -31,8 +30,8 @@ class NullType : Type {
 		return "null";
 	}
 
-	Value make() {
-		Value result = { typeID: this.typeID };
+	Value make(FunctionNode func, Context ctx) {
+		Value result = { typeID: this.typeID, ptr1: cast(void*)func, ptr2: cast(void*)ctx };
 		return result;
 	}
 
@@ -45,7 +44,7 @@ class NullType : Type {
 		if (type == this) return *src;
 		else if (type == interpreter.stringType) return interpreter.stringType.make("");
 		else if (type == interpreter.arrayType) return interpreter.arrayType.make([]);
-		else throw new RuntimeException("Cannot convert null to " ~ interpreter.types[src.typeID].name);
+		else throw new RuntimeException("Cannot convert function to " ~ interpreter.types[src.typeID].name);
 	}
 
 	bool op_equal(Value* lhs, Value* rhs) {
@@ -55,24 +54,27 @@ class NullType : Type {
 	}
 
 	int op_comp(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot compare null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot compare function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value  op_new(Value[] args) {
-		throw new RuntimeException("Cannot create new null");
+		throw new RuntimeException("Cannot create new function");
 	}
 
 	Value op_call(Value* lhs, Value[] args) {
-		import std.algorithm : map;
-		import std.string : join;
-		throw new RuntimeException("Cannot call null with arguments " ~
-			args.map!((element) => interpreter.types[element.typeID].name).join(", "));
+		auto func = cast(FunctionNode)lhs.ptr1;
+		auto ctx = cast(Context)lhs.ptr2;
+		auto old_ctx = interpreter.context;
+		interpreter.context = ctx;
+		auto result = interpreter.executeFunction(func, args);
+		interpreter.context = old_ctx;
+		return result;
 	}
 
 	Value* op_index(Value* lhs, Value[] args) {
 		import std.algorithm : map;
 		import std.string : join;
-		throw new RuntimeException("Cannot index null with arguments " ~
+		throw new RuntimeException("Cannot index function with arguments " ~
 			args.map!((element) => interpreter.types[element.typeID].name).join(", "));
 	}
 
@@ -91,43 +93,43 @@ class NullType : Type {
 	}
 
 	Value op_add(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot add null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot add function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_subtract(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot subtract null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot subtract function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_multiply(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot multiply null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot multiply function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_divide(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot divide null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot divide function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_modulo(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot modulo null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot modulo function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_bitAnd(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot bitwise and null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot bitwise and function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_bitOr(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot bitwise or null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot bitwise or function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_bitXor(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot bitwise exclusive or null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot bitwise exclusive or function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_bitShiftLeft(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot bitwise shift left null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot bitwise shift left function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_bitShiftRight(Value* lhs, Value* rhs) {
-		throw new RuntimeException("Cannot bitwise shift right null and " ~ interpreter.types[rhs.typeID].name); 
+		throw new RuntimeException("Cannot bitwise shift right function and " ~ interpreter.types[rhs.typeID].name); 
 	}
 
 	Value op_posative(Value* src) {

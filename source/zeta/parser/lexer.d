@@ -119,7 +119,6 @@ Token parseNumber(LexerState state) {
 	auto location = state.location;
 	bool isFloat;
 	Appender!string result;
-	state.popFront();
 	while (!state.empty && (state.front.isNumber() || state.front == '.')) {
 		if (state.front == '.') {
 			if (isFloat || (state.length >= 2 && !state.frontN(2)[1].isNumber())) 

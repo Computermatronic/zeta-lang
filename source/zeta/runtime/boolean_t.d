@@ -5,11 +5,11 @@
  * Written by SeCampbell.
  * Distributed under The MIT License (See LICENCE file).
  */
-module zeta.runtime.natives.boolean_t;
+module zeta.runtime.boolean_t;
 
-import zeta.runtime.type;
-import zeta.runtime.interpreter;
-import zeta.runtime.natives.types;
+import zeta.interpreter.type;
+import zeta.interpreter.core;
+import zeta.runtime;
 
 class BooleanType : Type {
 	Interpreter interpreter;

@@ -1,15 +1,15 @@
 /* 
- * The official Zeta interpreter.
+ * The official Zeta interperter.
  * Reference implementation of the Zeta scripting language.
  * Copyright (c) 2018 by SeCampbell.
  * Written by SeCampbell.
  * Distributed under The MIT License (See LICENCE file).
  */
-module zeta.runtime.natives.integer_t;
+module zeta.runtime.integer_t;
 
-import zeta.runtime.type;
-import zeta.runtime.interpreter;
-import zeta.runtime.natives.types;
+import zeta.interpreter.type;
+import zeta.interpreter.core;
+import zeta.runtime;
 
 class IntegerType : Type {
 	Interpreter interpreter;

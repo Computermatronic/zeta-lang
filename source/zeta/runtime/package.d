@@ -7,11 +7,18 @@
  */
 module zeta.runtime;
 
-public import zeta.runtime.core;
-public import zeta.runtime.type;
-public import zeta.runtime.null_t;
-public import zeta.runtime.boolean_t;
-public import zeta.runtime.integer_t;
-public import zeta.runtime.float_t;
-public import zeta.runtime.string_t;
-public import zeta.runtime.array_t;
+public {
+	import zeta.runtime.null_t;
+	import zeta.runtime.boolean_t;
+	import zeta.runtime.integer_t;
+	import zeta.runtime.float_t;
+	import zeta.runtime.string_t;
+	import zeta.runtime.array_t;
+	import zeta.runtime.function_t;
+}
+
+class RuntimeException : Exception {
+	this(string msg, string file = __FILE__, size_t line = __LINE__) {
+		super(msg, file, line);
+	}
+}

@@ -5,11 +5,11 @@
  * Written by Sean Campbell.
  * Distributed under The MIT License (See LICENCE file).
  */
-module zeta.runtime.natives.string_t;
+module zeta.runtime.string_t;
 
-import zeta.runtime.type;
-import zeta.runtime.interpreter;
-import zeta.runtime.natives.types;
+import zeta.interpreter.type;
+import zeta.interpreter.core;
+import zeta.runtime;
 
 class StringType : Type {
 	Interpreter interpreter;

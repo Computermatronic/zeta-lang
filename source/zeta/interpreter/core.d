@@ -9,10 +9,21 @@ module zeta.interpreter.core;
 
 import std.conv : to;
 import zeta.parser.ast;
+import zeta.interpreter.context;
+import zeta.interpreter.type;
 import zeta.runtime;
 
 class Interpreter : ASTVisitor {
-	Runtime runtime;
+	Context context;
+	Type[] types;
+
+	NullType nullType;
+	BooleanType booleanType;
+	IntegerType integerType;
+	FloatType floatType;
+	StringType stringType;
+	ArrayType arrayType;
+	FunctionType functionType;
 
 	bool shouldReturn;
 	int continueCount, breakCount;
@@ -20,25 +31,45 @@ class Interpreter : ASTVisitor {
 	Value realValue;
 	Value* value;
 
-	void pushScope() {
-		scopeBlock = new ScopeBlock(scopeBlock);
+	this() {
+		types ~= nullType = new NullType;
+		types ~= booleanType = new BooleanType;
+		types ~= integerType = new IntegerType;
+		types ~= floatType = new FloatType;
+		types ~= stringType = new StringType;
+		types ~= arrayType = new ArrayType;
+		types ~= functionType = new FunctionType;
+
+		foreach(k, v; types) {
+			v.initialize(this, cast(ushort)k);
+		}
 	}
 
-	void popScope() {
-		scopeBlock = scopeBlock.outer;
+	void pushContext() {
+		context = new Context(context);
+	}
+
+	void popContext() {
+		context = context.outer;
+	}
+
+	template opDispatch(string op) {
+		auto opDispatch(Args...)(Args args) if (op[0..3] == "op_") {
+			mixin("return types[args[0].typeID]." ~ op ~ "(args);");
+		}
 	}
 
 	Value executeFunction(FunctionNode node, Value[] arguments) {
-		Value result = runtime.nullValue;
-		pushScope();
+		Value result = nullType.nullValue;
+		pushContext();
 		for(size_t i; i < node.paramaters.length; i++) {
 			if (i < arguments.length) {
-				scopeBlock.define(node.paramaters[i].name, arguments[i]);
+				context.define(node.paramaters[i].name, arguments[i]);
 			} else if (node.paramaters[i].initializer !is null) {
-				node.paramaters[i[.initializer.accept(this);
-				scopeBlock.define(node.paramaters[i].name, *value);
+				node.paramaters[i].initializer.accept(this);
+				context.define(node.paramaters[i].name, *value);
 			} else {
-				scopeBlock.define(node.paramaters[i].name, runtime.nullValue);
+				context.define(node.paramaters[i].name, nullType.nullValue);
 			}
 		}
 		foreach(member; node.members) {
@@ -50,14 +81,15 @@ class Interpreter : ASTVisitor {
 		}
 		shouldReturn = false;
 		continueCount = breakCount = 0;
-		popScope();
+		popContext();
 		return result;
 	}
 
 	void visit(ModuleNode node) {
-		//foreach(member; node.members) {
-		//	member.accept(this);
-		//}
+		pushContext();
+		foreach(member; node.members) {
+			member.accept(this);
+		}
 	}
 
 	void visit(ImportNode node) {
@@ -66,13 +98,14 @@ class Interpreter : ASTVisitor {
 	void visit(DefNode node) {
 		if (node.initializer !is null) {
 			node.initializer.accept(this);
-			scopeBlock.define(node.name, *value);
+			context.define(node.name, *value);
 		} else {
-			scopeBlock.define(node.name, runtime.nullValue);
+			context.define(node.name, nullType.nullValue);
 		}
 	}
 
 	void visit(FunctionNode node) {
+		context.define(node.name, functionType.make(node, context));
 		//foreach(paramater; node.paramaters) {
 		//	paramater.accept(this);
 		//}
@@ -129,7 +162,7 @@ class Interpreter : ASTVisitor {
 			else if (continueCount > 1) {
 				continueCount--;
 				break;
-			else if (continueCount == 1) {
+			} else if (continueCount == 1) {
 				continueCount --;
 				continue;
 			} else if (breakCount > 0) {
@@ -151,23 +184,24 @@ class Interpreter : ASTVisitor {
 
 	void visit(ForNode node) {
 		if (node.initializer !is null) node.initializer.accept(this);
-		if (node.subject !is null) node.subject.accept(this);
-		if (node.step !is null) node.step.accept(this);
-		foreach(member; node.members) {
-			member.accept(this);
-		foreach(member; node.members) {
-			member.accept(this);
-			if (shouldReturn) return;
-			else if (continueCount > 1) {
-				continueCount--;
-				break;
-			else if (continueCount == 1) {
-				continueCount --;
-				continue;
-			} else if (breakCount > 0) {
-				breakCount--;
-				break;
+		while(true) {
+			if (node.subject !is null) node.subject.accept(this);
+			if (!this.op_eval(value)) break;
+			foreach(member; node.members) {
+				member.accept(this);
+				if (shouldReturn) return;
+				else if (continueCount > 1) {
+					continueCount--;
+					break;
+				} else if (continueCount == 1) {
+					continueCount --;
+					continue;
+				} else if (breakCount > 0) {
+					breakCount--;
+					break;
+				}
 			}
+			if (node.step !is null) node.step.accept(this);
 		}
 	}
 
@@ -178,15 +212,11 @@ class Interpreter : ASTVisitor {
 		if (node.subject !is null) node.subject.accept(this);
 		foreach(member; node.members) {
 			member.accept(this);
-		foreach(member; node.members) {
-			member.accept(this);
-
-
 			if (shouldReturn) return;
 			else if (continueCount > 1) {
 				continueCount--;
 				break;
-			else if (continueCount == 1) {
+			} else if (continueCount == 1) {
 				continueCount --;
 				continue;
 			} else if (breakCount > 0) {
@@ -200,15 +230,11 @@ class Interpreter : ASTVisitor {
 		node.subject.accept(this);
 		foreach(member; node.members) {
 			member.accept(this);
-		foreach(member; node.members) {
-			member.accept(this);
-
-
 			if (shouldReturn) return;
 			else if (continueCount > 1) {
 				continueCount--;
 				break;
-			else if (continueCount == 1) {
+			} else if (continueCount == 1) {
 				continueCount --;
 				continue;
 			} else if (breakCount > 0) {
@@ -233,7 +259,7 @@ class Interpreter : ASTVisitor {
 			else if (continueCount > 1) {
 				continueCount--;
 				break;
-			else if (continueCount == 1) {
+			} else if (continueCount == 1) {
 				continueCount --;
 				continue;
 			} else if (breakCount > 0) {
@@ -247,7 +273,7 @@ class Interpreter : ASTVisitor {
 	void visit(BreakNode node) {
 		if (node.subject !is null) {
 			node.subject.accept(this);
-			breakCount = runtime.op_cast(value, integerType).int_;
+			breakCount = this.op_cast(value, integerType).int_;
 		} else breakCount++;
 	}
 
@@ -255,14 +281,14 @@ class Interpreter : ASTVisitor {
 
 		if (node.subject !is null) {
 			node.subject.accept(this);
-			continueCount = runtime.op_cast(value, integerType).int_;
+			continueCount = this.op_cast(value, integerType).int_;
 		} else continueCount++;
 	}
 
 	void visit(ReturnNode node) {
 		if (node.subject !is null) node.subject.accept(this);
 		else {
-			realValue = runtime.nullValue;
+			realValue = nullType.nullValue;
 			value = &realValue;
 		}
 		shouldReturn = true;
@@ -277,42 +303,42 @@ class Interpreter : ASTVisitor {
 
 		final switch(node.operator) with(UnaryNode.Operator) {
 			case increment:
-				runtime.op_increment(value);
+				this.op_increment(value);
 				break;
 
 			case decrement:
-				runtime.op_decrement(value);
+				this.op_decrement(value);
 				break;
 
 			case posative:
-				realValue = runtime.op_posative(value);
+				realValue = this.op_posative(value);
 				value = &realValue;
 				break;
 
 			case negative:
-				realValue = runtime.op_negative(value);
+				realValue = this.op_negative(value);
 				value = &realValue;
 				break;
 
 			case not:
-				realValue = runtime.op_eval(value) ? runtime.falseValue : runtime.trueValue;
+				realValue = this.op_eval(value) ? booleanType.falseValue : booleanType.trueValue;
 				value = &realValue;
 				break;
 
 			case bitwiseNot:
-				realValue = runtime.op_bitNot(value);
+				realValue = this.op_bitNot(value);
 				value = &realValue;
 				break;
 
 			case postIncrement:
 				realValue = *value;
-				runtime.op_increment(value);
+				this.op_increment(value);
 				value = &realValue;
 				break;
 
 			case postDecrement:
 				realValue = *value;
-				runtime.op_decrement(value);
+				this.op_decrement(value);
 				value = &realValue;
 				break;
 		}
@@ -329,90 +355,90 @@ class Interpreter : ASTVisitor {
 
 		final switch(node.operator) with(BinaryNode.Operator) {
 			case multiply:
-				realValue = runtime.op_multiply(&lhs, &rhs);
+				realValue = this.op_multiply(&lhs, &rhs);
 				break;
 
 			case divide:
-				realValue = runtime.op_divide(&lhs, &rhs);
+				realValue = this.op_divide(&lhs, &rhs);
 				break;
 
 			case modulo:
-				realValue = runtime.op_modulo(&lhs, &rhs);
+				realValue = this.op_modulo(&lhs, &rhs);
 				break;
 
 			case add:
-				realValue = runtime.op_add(&lhs, &rhs);
+				realValue = this.op_add(&lhs, &rhs);
 				break;
 
 			case subtract:
-				realValue = runtime.op_subtract(&lhs, &rhs);
+				realValue = this.op_subtract(&lhs, &rhs);
 				break;
 
 			case bitwiseShiftLeft:
-				realValue = runtime.op_bitShiftLeft(&lhs, &rhs);
+				realValue = this.op_bitShiftLeft(&lhs, &rhs);
 				break;
 
 			case bitwiseShiftRight:
-				realValue = runtime.op_bitShiftRight(&lhs, &rhs);
+				realValue = this.op_bitShiftRight(&lhs, &rhs);
 				break;
 
 			case greaterThan:
-				if (runtime.op_comp(&lhs, &rhs) > 0) realValue = runtime.trueValue;
-				else realValue = runtime.falseValue;
+				if (this.op_comp(&lhs, &rhs) > 0) realValue = booleanType.trueValue;
+				else realValue = booleanType.falseValue;
 				break;
 
 			case lessThan:
-				if (runtime.op_comp(&lhs, &rhs) < 0) realValue = runtime.trueValue;
-				else realValue = runtime.falseValue;
+				if (this.op_comp(&lhs, &rhs) < 0) realValue = booleanType.trueValue;
+				else realValue = booleanType.falseValue;
 				break;
 
 			case greaterThanEqual: 
-				if (runtime.op_comp(&lhs, &rhs) >= 0) realValue = runtime.trueValue;
-				else realValue = runtime.falseValue;
+				if (this.op_comp(&lhs, &rhs) >= 0) realValue = booleanType.trueValue;
+				else realValue = booleanType.falseValue;
 				break;
 
 			case lessThanEqual:
-				if (runtime.op_comp(&lhs, &rhs) <= 0) realValue = runtime.trueValue;
-				else realValue = runtime.falseValue;
+				if (this.op_comp(&lhs, &rhs) <= 0) realValue = booleanType.trueValue;
+				else realValue = booleanType.falseValue;
 				break;
 
 			case bitwiseAnd:
-				realValue = runtime.op_bitAnd(&lhs, &rhs);
+				realValue = this.op_bitAnd(&lhs, &rhs);
 				break;
 
 			case bitwiseOr:
-				realValue = runtime.op_bitOr(&lhs, &rhs);
+				realValue = this.op_bitOr(&lhs, &rhs);
 				break;
 
 			case bitwiseXor:
-				realValue = runtime.op_bitXor(&lhs, &rhs);
+				realValue = this.op_bitXor(&lhs, &rhs);
 				break;
 
 			case and:
-				realValue = runtime.op_eval(&lhs) && runtime.op_eval(&rhs) ? runtime.trueValue : runtime.falseValue;
+				realValue = this.op_eval(&lhs) && this.op_eval(&rhs) ? booleanType.trueValue : booleanType.falseValue;
 				break;
 
 			case or:
-				realValue = runtime.op_eval(&lhs) || runtime.op_eval(&rhs) ? runtime.trueValue : runtime.falseValue;
+				realValue = this.op_eval(&lhs) || this.op_eval(&rhs) ? booleanType.trueValue : booleanType.falseValue;
 				break;
 
 			case xor:
-				realValue = runtime.op_eval(&lhs) ^^ runtime.op_eval(&rhs) ? runtime.trueValue : runtime.falseValue;
+				realValue = this.op_eval(&lhs) ^^ this.op_eval(&rhs) ? booleanType.trueValue : booleanType.falseValue;
 				break;
 
 			case slice:
 				break;
 
 			case concat:
-				realValue = runtime.op_concat(&lhs, &rhs);
+				realValue = this.op_concat(&lhs, &rhs);
 				break;
 
 			case equal:
-				realValue = runtime.op_equal(&lhs, &rhs) ? runtime.trueValue : runtime.falseValue;
+				realValue = this.op_equal(&lhs, &rhs) ? booleanType.trueValue : booleanType.falseValue;
 				break;
 
 			case notEqual:
-				realValue = runtime.op_equal(&lhs, &rhs) ? runtime.falseValue : runtime.trueValue;
+				realValue = this.op_equal(&lhs, &rhs) ? booleanType.falseValue : booleanType.trueValue;
 				break;
 		}
 		value = &realValue;
@@ -420,7 +446,7 @@ class Interpreter : ASTVisitor {
 
 	void visit(TinaryNode node) {
 		node.subject.accept(this);
-		if (runtime.op_eval(value)) node.lhs.accept(this);
+		if (this.op_eval(value)) node.lhs.accept(this);
 		else node.rhs.accept(this);
 	}
 
@@ -437,7 +463,7 @@ class Interpreter : ASTVisitor {
 			arguments ~= *value;
 		}
 
-		realValue = runtime.op_call(&subject, arguments);
+		realValue = this.op_call(&subject, arguments);
 		value = &realValue;
 	}
 
@@ -448,7 +474,7 @@ class Interpreter : ASTVisitor {
 		//node.type.accept(this);
 		//type = value;
 		//
-		//if (runtime.types[type.typeID] != typeType) assert(0, "Attempted to new non-type");
+		//if (.types[type.typeID] != typeType) assert(0, "Attempted to new non-type");
 		//
 		//
 		//arguments.reserve(node.arguments.length);
@@ -476,39 +502,39 @@ class Interpreter : ASTVisitor {
 				break;
 
 			case concat:
-				runtime.op_concatAssign(subject, &argument);
+				this.op_concatAssign(subject, &argument);
 				break;
 
 			case add:
-				*subject = runtime.op_add(subject, &argument);
+				*subject = this.op_add(subject, &argument);
 				break;
 
 			case subtract:
-				*subject = runtime.op_subtract(subject, &argument);
+				*subject = this.op_subtract(subject, &argument);
 				break;
 
 			case multiply:
-				*subject = runtime.op_multiply(subject, &argument);
+				*subject = this.op_multiply(subject, &argument);
 				break;
 
 			case divide:
-				*subject = runtime.op_divide(subject, &argument);
+				*subject = this.op_divide(subject, &argument);
 				break;
 
 			case modulo:
-				*subject = runtime.op_modulo(subject, &argument);
+				*subject = this.op_modulo(subject, &argument);
 				break;
 
 			case and:
-				*subject = runtime.op_bitAnd(subject, &argument);
+				*subject = this.op_bitAnd(subject, &argument);
 				break;
 
 			case or:
-				*subject = runtime.op_bitOr(subject, &argument);
+				*subject = this.op_bitOr(subject, &argument);
 				break;
 
 			case xor:
-				*subject = runtime.op_bitXor(subject, &argument);
+				*subject = this.op_bitXor(subject, &argument);
 				break;
 		}
 	}
@@ -542,7 +568,7 @@ class Interpreter : ASTVisitor {
 	}
 
 	void visit(IdentifierNode node) {
-		value = scopeBlock.lookup(node.identifier);
+		value = context.lookup(node.identifier);
 	}
 
 	void visit(DispatchNode node) {
@@ -551,7 +577,7 @@ class Interpreter : ASTVisitor {
 		node.subject.accept(this);
 		subject = *value;
 
-		value = runtime.op_dispatch(&subject, node.identifier);
+		value = this.op_dispatch(&subject, node.identifier);
 	}
 
 	void visit(SubscriptNode node) {
@@ -567,7 +593,7 @@ class Interpreter : ASTVisitor {
 			arguments ~= *value;
 		}
 
-		value = runtime.op_index(&subject, arguments);
+		value = this.op_index(&subject, arguments);
 	}
 }
 

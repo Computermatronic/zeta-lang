@@ -5,11 +5,11 @@
  * Written by Sean Campbell.
  * Distributed under The MIT License (See LICENCE file).
  */
-module zeta.runtime.natives.array_t;
+module zeta.runtime.array_t;
 
-import zeta.runtime.type;
-import zeta.runtime.interpreter;
-import zeta.runtime.natives.types;
+import zeta.interpreter.type;
+import zeta.interpreter.core;
+import zeta.runtime;
 
 class ArrayType : Type {
 	Interpreter interpreter;
