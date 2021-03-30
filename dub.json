@@ -1,0 +1,12 @@
+{
+	"authors": [
+		"Sean Campbell"
+	],
+	"copyright": "Copyright © 2018-2021, Sean Campbell",
+	"dependencies": {
+	},
+	"description": "Zeta-Lang, a scripting language written in DLang.",
+	"license": "MPL-2.0",
+	"name": "zeta-lang",
+	"targetType": "executable"
+}
