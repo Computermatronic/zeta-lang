@@ -12,31 +12,34 @@ import std.file : readText;
 import zeta.parse.lexer;
 import zeta.parse.parser;
 import zeta.script.interpreter;
-import zeta.script.variable;
+import zeta.type.value;
+import zeta.type.nativefunc;
+import zeta.type.func;
+import zeta.type.nullval;
 
 void main(string[] args) {
-	ZtInterpreter interpreter = new ZtInterpreter;
-	interpreter.addNative(new BuiltinDelegate(&zt_writeln, "writeln"));
-	Delegate ztMain;
-	foreach(file; args[1..$]) {
-		auto lexer = ZtLexer(file, file.readText());
-		auto parser = ZtParser(lexer);
-		auto astModule = parser.parseModule();
-		if (lexer.errorCount + parser.errorCount > 0) {
-			writefln("%-(%s\n%)", lexer.messages ~ parser.messages);
-			return;
+    ZtInterpreter interpreter = new ZtInterpreter;
+    interpreter.addNative(new ZtNative(&zt_writeln, "writeln"));
+    ZtFunction ztMain;
+    foreach(file; args[1..$]) {
+	    auto lexer = ZtLexer(file, file.readText());
+	    auto parser = ZtParser(lexer);
+	    auto astModule = parser.parseModule();
+	    if (lexer.errorCount + parser.errorCount > 0) {
+		    writefln("%-(%s\n%)", lexer.messages ~ parser.messages);
+		    return;
 		}
-		auto moduleScope = interpreter.doModule(astModule);
-		if (auto moduleEntryPoint = cast(Delegate)(moduleScope.tryGet("main"))) ztMain = moduleEntryPoint;
+	    auto moduleScope = interpreter.doModule(astModule);
+	    if (auto moduleEntryPoint = cast(ZtFunction)(moduleScope.tryGet("main"))) ztMain = moduleEntryPoint;
 	}
-	if (ztMain is null) {
-		writeln("Error: no main function defined in script.");
-		return;
+    if (ztMain is null) {
+	    writeln("Error: no main function defined in script.");
+	    return;
 	}
-	writeln("Script compiled correctly, running...");
-	auto result = ztMain.call(null);
+    writeln("Script compiled correctly, running...");
+    auto result = ztMain.call(null);
 }
-Variable zt_writeln(Variable[] args) {
-	writefln("%(%s %)", args);
-	return nullValue;
+ZtValue zt_writeln(ZtValue[] args) {
+    writefln("%(%s %)", args);
+    return nullValue;
 }

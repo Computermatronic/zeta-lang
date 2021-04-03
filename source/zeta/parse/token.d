@@ -13,135 +13,135 @@ import std.format : format;
 import std.variant : Algebraic;
 
 struct ZtToken {
-	alias Literal = Algebraic!(ulong, long, double, dchar, string);
-	enum Type {
-		tk_eof,
-		tk_plus,
-		tk_minus,
-		tk_asterisk,
-		tk_slash,
-		tk_percent,
-		tk_power,
-		tk_tilde,
-		tk_ampersand,
-		tk_poll,
-		tk_hash,
-		tk_shiftLeft,
-		tk_shiftRight,
-		tk_logicalAnd,
-		tk_logicalOr,
-		tk_logicalXor,
+    alias Literal = Algebraic!(ulong, long, double, dchar, string);
+    enum Type {
+	    tk_eof,
+	    tk_plus,
+	    tk_minus,
+	    tk_asterisk,
+	    tk_slash,
+	    tk_percent,
+	    tk_power,
+	    tk_tilde,
+	    tk_ampersand,
+	    tk_poll,
+	    tk_hash,
+	    tk_shiftLeft,
+	    tk_shiftRight,
+	    tk_logicalAnd,
+	    tk_logicalOr,
+	    tk_logicalXor,
 
-		tk_assign,
-		tk_assignAdd,
-		tk_assignSubtract,
-		tk_assignMultiply,
-		tk_assignDivide,
-		tk_assignModulo,
-		tk_assignPower,
-		tk_assignConcat,
-		tk_assignAnd,
-		tk_assignOr,
-		tk_assignXor,
+	    tk_assign,
+	    tk_assignAdd,
+	    tk_assignSubtract,
+	    tk_assignMultiply,
+	    tk_assignDivide,
+	    tk_assignModulo,
+	    tk_assignPower,
+	    tk_assignConcat,
+	    tk_assignAnd,
+	    tk_assignOr,
+	    tk_assignXor,
 
-		tk_equal,
-		tk_notEqual,
-		tk_greaterThan,
-		tk_lessThan,
-		tk_greaterThanEqual,
-		tk_lessThanEqual,
+	    tk_equal,
+	    tk_notEqual,
+	    tk_greaterThan,
+	    tk_lessThan,
+	    tk_greaterThanEqual,
+	    tk_lessThanEqual,
 
-		tk_increment,
-		tk_decrement,
-		tk_not,
+	    tk_increment,
+	    tk_decrement,
+	    tk_not,
 
-		tk_question,
+	    tk_question,
 
-		tk_dot,
-		tk_apply,
-		tk_comma,
-		tk_colon,
-		tk_semicolon,
-		tk_variadic,
-		tk_slice,
+	    tk_dot,
+	    tk_apply,
+	    tk_comma,
+	    tk_colon,
+	    tk_semicolon,
+	    tk_variadic,
+	    tk_slice,
 
-		tk_leftParen,
-		tk_rightParen,
-		tk_leftBracket,
-		tk_rightBracket,
-		tk_leftBrace,
-		tk_rightBrace,
+	    tk_leftParen,
+	    tk_rightParen,
+	    tk_leftBracket,
+	    tk_rightBracket,
+	    tk_leftBrace,
+	    tk_rightBrace,
 
-		kw_module,
-		kw_import,
-		kw_enum,
-		kw_template,
-		kw_struct,
-		kw_class,
-		kw_interface,
-		kw_function,
-		kw_def,
-		kw_alias,
+	    kw_module,
+	    kw_import,
+	    kw_enum,
+	    kw_template,
+	    kw_struct,
+	    kw_class,
+	    kw_interface,
+	    kw_function,
+	    kw_def,
+	    kw_alias,
 
-		kw_if,
-		kw_else,
-		kw_while,
-		kw_do,
-		kw_for,
-		kw_foreach,
-		kw_switch,
-		kw_case,
-		kw_with,
+	    kw_if,
+	    kw_else,
+	    kw_while,
+	    kw_do,
+	    kw_for,
+	    kw_foreach,
+	    kw_switch,
+	    kw_case,
+	    kw_with,
 
-		kw_cast,
-		kw_typeof,
-		kw_break,
-		kw_continue,
-		kw_return,
-		kw_is,
-		kw_new,
-		kw_delete,
+	    kw_cast,
+	    kw_typeof,
+	    kw_break,
+	    kw_continue,
+	    kw_return,
+	    kw_is,
+	    kw_new,
+	    kw_delete,
 
-		ud_identifier,
-		ud_attribute,
-		ud_string,
-		ud_char,
-		ud_integer,
-		ud_float,
-		ud_unknown
+	    ud_identifier,
+	    ud_attribute,
+	    ud_string,
+	    ud_char,
+	    ud_integer,
+	    ud_float,
+	    ud_unknown
 	}
-	Type type;
-	ZtSrcLocation location;
-	string lexeme;
-	Literal literal;
+    Type type;
+    ZtSrcLocation location;
+    string lexeme;
+    Literal literal;
 }
 
 struct ZtSrcLocation {
-	size_t line, column, position;
-	string file;
+    size_t line, column, position;
+    string file;
 
-	static ZtSrcLocation fromBuffer(string text, size_t position, string file) {
-		import std.string : splitLines;
-		auto lines = text[0..position].splitLines();
-		return ZtSrcLocation(lines.length, lines.length == 0 ? 1 : lines[$-1].length, position, file);
+    static ZtSrcLocation fromBuffer(string text, size_t position, string file) {
+	    import std.string : splitLines;
+	    auto lines = text[0..position].splitLines();
+	    return ZtSrcLocation(lines.length, lines.length == 0 ? 1 : lines[$-1].length, position, file);
 	}
 
 	@property string toString() const {
-		return format("%s:(line: %s, column:%s)", file, line, column);
+	    return format("%s:(line: %s, column:%s)", file, line, column);
 	}
 }
 
 string describeToken(ZtToken.Type tokenType) {
-	switch(tokenType) {
-		case ZtToken.Type.ud_identifier: return "<Identifier>";
-		case ZtToken.Type.ud_attribute: return "<Attribute>";
-		case ZtToken.Type.ud_string: return "<String Literal>";
-		case ZtToken.Type.ud_char: return "<Charecter Literal>";
-		case ZtToken.Type.ud_integer: return "<Integer Literal>";
-		case ZtToken.Type.ud_float: return "<Floating Point Literal>";
-		default: static foreach(key, value; tokenLiterals) if (value == tokenType) return key;
+    switch(tokenType) {
+	    case ZtToken.Type.ud_identifier: return "<Identifier>";
+	    case ZtToken.Type.ud_attribute: return "<Attribute>";
+	    case ZtToken.Type.ud_string: return "<String Literal>";
+	    case ZtToken.Type.ud_char: return "<Charecter Literal>";
+	    case ZtToken.Type.ud_integer: return "<Integer Literal>";
+	    case ZtToken.Type.ud_float: return "<Floating Point Literal>";
+	    default: static foreach(key, value; tokenLiterals) if (value == tokenType) return key;
 	}
-	assert(0, "Unknown or illegal token detected.");
+    assert(0, "Unknown or illegal token detected.");
 }
 
 enum ZtToken.Type[string] tokenLiterals = [
