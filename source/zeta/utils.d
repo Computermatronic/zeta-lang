@@ -9,35 +9,35 @@ module zeta.utils;
 import std.range;
 
 auto stealFront(Range)(ref Range range) {
-	auto result = range.front;
-	range.popFront();
-	return result;
+    auto result = range.front;
+    range.popFront();
+    return result;
 }
 
 auto stealFrontN(Range)(ref Range range, size_t amount) {
-	auto result = range.take(amount);
-	range.popFrontN(amount);
-	return result;
+    auto result = range.take(amount);
+    range.popFrontN(amount);
+    return result;
 }
 
 mixin template ErrorSink(bool failOnError = false) {
     import std.format;
-	string[] messages;
-	size_t warnCount, errorCount;
+    string[] messages;
+    size_t warnCount, errorCount;
 
-	void error(Args...)(ZtSrcLocation location, string fmt, Args args) {
-		this.errorCount += 1;
-		messages ~= format("Error: %s in %s", format(fmt, args), location);
+    void error(Args...)(ZtSrcLocation location, string fmt, Args args) {
+	    this.errorCount += 1;
+	    messages ~= format("Error: %s in %s", format(fmt, args), location);
         static if(failOnError) assert(0, messages[$-1]);
 	}
 
-	void warn(Args...)(ZtSrcLocation location, string fmt, Args args) {
-		this.warnCount += 1;
-		messages ~= format("Warning: %s in %s", format(fmt, args), location);
+    void warn(Args...)(ZtSrcLocation location, string fmt, Args args) {
+	    this.warnCount += 1;
+	    messages ~= format("Warning: %s in %s", format(fmt, args), location);
 	}
 
-	void info(Args...)(ZtSrcLocation location, string fmt, Args args) {
-		messages ~= format("Info: %s in %s", format(fmt, args), location);
+    void info(Args...)(ZtSrcLocation location, string fmt, Args args) {
+	    messages ~= format("Info: %s in %s", format(fmt, args), location);
 	}
 }
 
