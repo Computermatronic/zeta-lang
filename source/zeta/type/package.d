@@ -7,13 +7,14 @@
 module zeta.type;
 
 public {
-    import zeta.type.value;
-    import zeta.type.nativefunc;
-    import zeta.type.func;
-    import zeta.type.boolean;
-    import zeta.type.nullval;
-    import zeta.type.integer;
-    import zeta.type.floating;
-    import zeta.type.array;
-    import zeta.type.string;
+    import zeta.type.type_t;
+    import zeta.type.null_t;
+    import zeta.type.boolean_t;
+    import zeta.type.integer_t;
+    import zeta.type.float_t;
+    import zeta.type.string_t;
+    import zeta.type.array_t;
+    import zeta.type.function_t;
+    import zeta.type.native_t;
+    import zeta.type.meta_t;
 }
