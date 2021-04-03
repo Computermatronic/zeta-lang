@@ -1,5 +1,5 @@
-dub.selections.json
 .dub
+dub.selections.json
 docs.json
 __dummy.html
 docs/
@@ -12,5 +12,3 @@ docs/
 *.dlangidews
 *.dlangidews.wssettings
 *.settings
-*.sublime*
-*.zt

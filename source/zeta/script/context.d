@@ -6,44 +6,68 @@
  */
 module zeta.script.context;
 
-import zeta.type.value;
+import zeta.type.type_t;
+import zeta.script.exception;
 
 class ZtLexicalContext {
-    ZtLexicalContext parent;
-    ZtValue[string] namespace;
-    bool isRoot;
-    
-    this() {
-        isRoot = true;
-    }
-    
-    this(ZtLexicalContext parent) {
-        this.parent = parent;
-    }
-    
-    ZtValue get(string name) {
-        if (auto result = name in namespace) return *result;
-        else if (parent !is null) return parent.get(name);
-        else assert(0, "ZtValue "~name~" doesn't exist!");
-    }
-    
-    ZtValue tryGet(string name) {
-        if (auto result = name in namespace) return *result;
-        else if (parent !is null) return parent.tryGet(name);
-        else return null;
-    }
-    
-    void define(string name, ZtValue assign) {
-        if (name in namespace) assert(0, "ZtValue "~name~" is already defined");
-        namespace[name] = assign;
+    ZtLexicalContext outer;
+    ZtValue[string] table;
+
+    this(ZtLexicalContext outer = null) {
+        this.outer = outer;
     }
 
-    void set(string name, ZtValue assign) {
-        assert(!isRoot, "Cannot redefine system constants.");
-        if (name in namespace)
-            namespace[name] = assign;
-        else if (parent !is null)
-            parent.set(name,assign);
-        else assert(0, "ZtValue "~name~" doesn't exist!");
+    ZtValue lookup(string name) {
+        auto result = name in table;
+        if (result !is null ) return makeRef(result);
+        else if (outer !is null) return outer.lookup(name);
+        else assert(0, "Error: no such variable "~name);
+    }
+
+    ZtValue* tryLookup(string name) {
+        auto result = name in table;
+        if (result !is null ) return result;
+        else if (outer !is null) return outer.tryLookup(name);
+        else return null;
+    }
+
+    void define(string name, ZtValue value) {
+        auto result = this.tryLookup(name);
+        if (result !is null) *result = value;
+        else table[name] = value;
+    }
+}
+
+
+class ZtWithContext: ZtLexicalContext {
+    ZtLexicalContext outer;
+    ZtValue[string] table;
+    ZtValue subject;
+
+    this(ZtValue subject, ZtLexicalContext outer = null) {
+        this.outer = outer;
+        this.subject = subject;
+    }
+
+    override ZtValue lookup(string name) {
+        auto result = name in table;
+        if (result !is null ) return makeRef(result);
+        try return subject.op_dispatch(name);
+        catch(RuntimeException e) { } //swallow
+        if (outer !is null) return outer.lookup(name);
+        else assert(0, "Error: no such variable "~name);
+    }
+
+    override ZtValue* tryLookup(string name) {
+        auto result = name in table;
+        if (result !is null ) return result;
+        else if (outer !is null) return outer.tryLookup(name);
+        else return null;
+    }
+
+    override void define(string name, ZtValue value) {
+        auto result = this.tryLookup(name);
+        if (result !is null) *result = value;
+        else table[name] = value;
     }
 }
