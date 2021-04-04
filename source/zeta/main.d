@@ -2,6 +2,7 @@ module zeta.main;
 
 import std.stdio;
 import std.conv;
+import std.array;
 import std.file : readText;
 import std.algorithm;
 import zeta.parse;
@@ -13,13 +14,20 @@ void main()
     auto sourceFile = "test.zs";
 
     auto lexer = ZtLexer(sourceFile, sourceFile.readText);
-    auto ztModule = ZtParser(lexer).parseModule();
-    auto interpreter = new ZtScriptInterpreter;
-    interpreter.context.define("writeln", interpreter.nativeType.make(&zt_writeln));
-    interpreter.context.define("isRef", interpreter.nativeType.make(&zt_isRef));
-    interpreter.context.define("refPtr", interpreter.nativeType.make(&zt_refPtr));
-    auto context = interpreter.execute(ztModule);
-    auto result = context.lookup("main").op_call(null);
+    auto parser = ZtParser(lexer);
+    auto ztModule = parser.parseModule();
+    if (lexer.errorCount + parser.errorCount > 0) {
+        lexer.messages.each!((e) => e.writeln);
+        parser.messages.each!((e) => e.writeln);
+    } else {
+        auto interpreter = new ZtScriptInterpreter;
+        interpreter.context.define("writeln", interpreter.nativeType.make(&zt_writeln));
+        interpreter.context.define("isRef", interpreter.nativeType.make(&zt_isRef));
+        interpreter.context.define("refPtr", interpreter.nativeType.make(&zt_refPtr));
+        auto context = interpreter.execute(ztModule);
+        if (auto ztMain = context.tryLookup("main")) ztMain.op_call(null);
+        else writeln("Error: no entry point defined");
+    }
 }
 
 ZtValue zt_writeln(ZtScriptInterpreter interpreter, ZtValue[] args) {

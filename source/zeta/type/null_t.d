@@ -43,7 +43,7 @@ class ZtNullType : ZtType {
         if (type == this) return self.deRefed;
         else if (type == interpreter.stringType) return interpreter.stringType.make("");
         else if (type == interpreter.arrayType) return interpreter.arrayType.make([]);
-        else throw new RuntimeException("Cannot convert null to " ~ self.type.name);
+        else return super.op_cast(self, type);
     }
 
     override bool op_equal(ZtValue* self, ZtValue rhs) {

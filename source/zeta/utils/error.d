@@ -6,19 +6,18 @@
  */
 module zeta.utils.error;
 
-enum ErrorMethod { sink, throwRtException, assert0 }
+enum OnError { sink, throwException, assert0 }
 
-mixin template ErrorSink(ErrorMethod errorMethod = ErrorMethod.sink) {
+mixin template ErrorSink(OnError onError = OnError.sink, ExceptionType = Exception) {
     import std.format;
-    static if(errorMethod == ErrorMethod.throwRtException) import zeta.script.exception;
     string[] messages;
     size_t warnCount, errorCount;
 
     void error(Args...)(ZtSrcLocation location, string fmt, Args args) {
         this.errorCount += 1;
         messages ~= format("Error: %s in %s", format(fmt, args), location);
-        static if(errorMethod == ErrorMethod.assert0) assert(0, messages[$-1]);
-        else static if (errorMethod == ErrorMethod.throwRtException) throw new RuntimeException(messages[$-1]);
+        static if(onError == OnError.assert0) assert(0, messages[$-1]);
+        else static if (onError == OnError.throwException) throw new ExceptionType(messages[$-1]);
     }
 
     void warn(Args...)(ZtSrcLocation location, string fmt, Args args) {

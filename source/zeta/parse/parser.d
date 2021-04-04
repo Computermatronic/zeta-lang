@@ -19,7 +19,6 @@ struct ZtParser {
         ZtAstAttribute[] attributes;
         bool hasElseCase;
     }
-    
     this(Range)(Range buffer) if (isInputRange!Range && is(ElementType!Range == ZtToken)) { 
         this.buffer = inputRangeObject(buffer);
         this.attributes = null;
@@ -32,15 +31,15 @@ struct ZtParser {
             string[] packageName;
             do {
                 packageName ~= this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-            } while(!buffer.empty && this.advanceForToken(ZtToken.Type.tk_dot));
+            } while(!this.isEof() && this.advanceForToken(ZtToken.Type.tk_dot));
             node.name = packageName[$-1];
             node.packageName = packageName[0 .. $ - 1];
             this.expectToken(ZtToken.Type.tk_semicolon);
         } else {
             import std.path : baseName, stripExtension;
-            node.name = buffer.front.location.file.baseName().stripExtension();
+            node.name = node.location.file.baseName().stripExtension();
         }
-        while(!buffer.empty) {
+        while(!this.isEof() && buffer.front.type != ZtToken.Type.ud_eof) {
             node.members ~= this.parseDeclaration();
         }
         return node;
@@ -77,7 +76,7 @@ struct ZtParser {
             string[] fullName;
             do {
                 fullName ~= this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-            } while(!buffer.empty && this.advanceForToken(ZtToken.Type.tk_dot));
+            } while(!this.isEof() && this.advanceForToken(ZtToken.Type.tk_dot));
             node.name = fullName[$-1];
             node.packageName = fullName[0..$-1];
             this.expectToken(ZtToken.Type.tk_semicolon);
@@ -113,13 +112,13 @@ struct ZtParser {
         //     return node;
         // }
 
-        // ZtAstClass parseClass() {
-        //     auto node = this.makeNode!ZtAstClass(ZtToken.Type.kw_class);
-        //     node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-        //     if (this.advanceForToken(ZtToken.Type.tk_colon)) node.baseTypes = this.parseList!parseReference();
-        //     else node.members = this.parseBlock!parseDeclaration();
-        //     return node;
-        // }
+        ZtAstClass parseClass() {
+            auto node = this.makeNode!ZtAstClass(ZtToken.Type.kw_class);
+            node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
+            if (this.advanceForToken(ZtToken.Type.tk_colon)) node.baseTypes = this.parseList!parseReference();
+            else node.members = this.parseBlock!parseDeclaration();
+            return node;
+        }
 
         // ZtAstInterface parseInterface() {
         //     auto node = this.makeNode!ZtAstInterface(ZtToken.Type.kw_interface);
@@ -285,13 +284,13 @@ struct ZtParser {
                 // case kw_alias: return this.parseAlias();
                 case kw_def: return this.parseDef();
                 case kw_function: return this.parseFunction();
-                // case kw_class: return this.parseClass();
+                case kw_class: return this.parseClass();
                 // case kw_interface: return this.parseInterface();
                 case kw_import: return this.parseImport();
                 case ud_attribute: this.parseAttributes(); goto nextDeclaration;
                 default: 
                     error(buffer.front.location, "Unrecognized declaration %s", buffer.front.lexeme);
-                    buffer.popFront();
+                    if (!this.isEof) buffer.popFront();
                     return null;
             }
         }
@@ -322,14 +321,14 @@ struct ZtParser {
 
                 case tk_plus, tk_minus:
                     auto node = this.makeNode!ZtAstUnary();
-                    node.operator = cast(ZtAstUnary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstUnary.Operator)this.takeFront().type;
                     node.subject = this.parseExpression(Precedence.unaryNegationOperator);
                     expression = node;
                     break;
 
                 case tk_increment, tk_decrement:
                     auto node = this.makeNode!ZtAstUnary();
-                    node.operator = cast(ZtAstUnary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstUnary.Operator)this.takeFront().type;
                     node.subject = this.parseExpression(Precedence.unaryIncrementOperator);
                     expression = node;
                     break;
@@ -396,7 +395,7 @@ struct ZtParser {
 
                 default: 
                     error(buffer.front.location, "Unrecognized expression %s", buffer.front.lexeme); 
-                    buffer.popFront(); 
+                    if(!this.isEof) buffer.popFront(); 
                     return null;
             }
             
@@ -418,11 +417,11 @@ struct ZtParser {
                     expression = node;
                     goto nextExpression;
 
-                case tk_asterisk, tk_slash, tk_percent, tk_power:
+                case tk_multiply, tk_divide, tk_modulo:
                     if (Precedence.multiplacativeOperator > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.multiplacativeOperator);
                     expression = node;
                     goto nextExpression;
@@ -431,7 +430,7 @@ struct ZtParser {
                     if (Precedence.additiveOperator > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.additiveOperator);
                     expression = node;
                     goto nextExpression;
@@ -440,7 +439,7 @@ struct ZtParser {
                     if (Precedence.comparativeOperator > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.comparativeOperator);
                     expression = node;
                     goto nextExpression;
@@ -449,7 +448,7 @@ struct ZtParser {
                     if (Precedence.equityOperator > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.equityOperator);
                     expression = node;
                     goto nextExpression;
@@ -458,34 +457,34 @@ struct ZtParser {
                     if (Precedence.bitShiftOperator > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.bitShiftOperator);
                     expression = node;
                     goto nextExpression;
 
-                case tk_ampersand:
+                case tk_bitAnd:
                     if (Precedence.bitAnd > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.bitAnd);
                     expression = node;
                     goto nextExpression;
 
-                case tk_poll:
+                case tk_bitOr:
                     if (Precedence.bitOr > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.bitOr);
                     expression = node;
                     goto nextExpression;
 
-                case tk_hash:
+                case tk_bitXor:
                     if (Precedence.bitXor > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.bitXor);
                     expression = node;
                     goto nextExpression;
@@ -494,7 +493,7 @@ struct ZtParser {
                     if (Precedence.and > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.and);
                     expression = node;
                     goto nextExpression;
@@ -503,7 +502,7 @@ struct ZtParser {
                     if (Precedence.or > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.or);
                     expression = node;
                     goto nextExpression;
@@ -512,16 +511,16 @@ struct ZtParser {
                     if (Precedence.xor > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.xor);
                     expression = node;
                     goto nextExpression;
 
-                case tk_tilde:/+, tk_slice:+/
+                case tk_tilde:
                     if (Precedence.concat > precedence) break;
                     auto node = this.makeNode!ZtAstBinary();
                     node.lhs = expression;
-                    node.operator = cast(ZtAstBinary.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstBinary.Operator)this.takeFront().type;
                     node.rhs = this.parseExpression(Precedence.concat);
                     expression = node;
                     goto nextExpression;
@@ -529,18 +528,17 @@ struct ZtParser {
                 case tk_increment, tk_decrement:
                 if (Precedence.unaryPostIncrementOperator > precedence) break;
                     auto node = this.makeNode!ZtAstUnary();
-                    node.operator = buffer.stealFront().type == tk_increment ? ZtAstUnary.Operator.postIncrement : 
-                        ZtAstUnary.Operator.postDecrement;
+                    node.operator = cast(ZtAstUnary.Operator)this.takeFront().type;
                     node.subject = expression;
                     expression = node;
                     break;
 
-                case tk_assign, tk_assignAdd, tk_assignSubtract, tk_assignMultiply, tk_assignDivide, tk_assignModulo, tk_assignPower,
+                case tk_assign, tk_assignAdd, tk_assignSubtract, tk_assignMultiply, tk_assignDivide, tk_assignModulo,
                 tk_assignConcat, tk_assignAnd, tk_assignOr, tk_assignXor:
                     if (Precedence.assignmentOperator > precedence) break;
                     auto node = this.makeNode!ZtAstAssign();
                     node.subject = expression;
-                    node.operator = cast(ZtAstAssign.Operator)buffer.stealFront().type;
+                    node.operator = cast(ZtAstAssign.Operator)this.takeFront().type;
                     node.assignment = this.parseExpression(Precedence.assignmentOperator);
                     expression = node;
                     goto nextExpression;
@@ -600,7 +598,7 @@ struct ZtParser {
 
                 default: 
                     error(buffer.front.location, "Unrecognized expression %s", buffer.front.lexeme); 
-                    buffer.popFront(); 
+                    if(!this.isEof) buffer.popFront(); 
                     return null;
             }
 
@@ -634,7 +632,7 @@ struct ZtParser {
             ReturnType!(func)[] list;
             do {
                 list ~= func();
-            } while(!buffer.empty && this.advanceForToken(ZtToken.Type.tk_comma));
+            } while(!this.isEof() && this.advanceForToken(ZtToken.Type.tk_comma));
             return list;
         }
 
@@ -643,7 +641,7 @@ struct ZtParser {
 
             ReturnType!(func)[] block;
             if (this.advanceForToken(ZtToken.Type.tk_leftBrace)) {
-                while(!buffer.empty && !this.testForToken(ZtToken.Type.tk_rightBrace)) {
+                while(!this.isEof() && !this.testForToken(ZtToken.Type.tk_rightBrace)) {
                     block ~= func();
                 }
                 this.expectToken(ZtToken.Type.tk_rightBrace);
@@ -680,7 +678,7 @@ struct ZtParser {
 
         bool advanceForToken(ZtToken.Type tokenType) {
             if (buffer.front.type == tokenType) {
-                buffer.stealFront();
+                if (!this.isEof) buffer.popFront();
                 return true;
             } else {
                 return false;
@@ -688,8 +686,17 @@ struct ZtParser {
         }
 
         ZtToken expectToken(ZtToken.Type tokenType) {
-            if (buffer.front.type != tokenType) error(buffer.front.location, "Expected %s, got '%s'", describeToken(tokenType), buffer.front.lexeme);
-            return buffer.stealFront;
+            if (buffer.front.type != tokenType) error(buffer.front.location, "Expected %s, got '%s'", tokenType, buffer.front.lexeme);
+            return this.takeFront;
+        }
+
+        ZtToken takeFront() {
+            if (!this.isEof) return buffer.stealFront;
+            else return buffer.front;
+        }
+
+        bool isEof() {
+            return buffer.empty || buffer.front.type == ZtToken.Type.ud_eof;
         }
 
         Type makeNode(Type)() {

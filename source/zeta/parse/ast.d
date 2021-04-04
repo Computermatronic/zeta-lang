@@ -65,10 +65,10 @@ class ZtAstFunction: ZtAstDeclaration {
 //     ZtAstExpression initializer;
 // }
 
-// class ZtAstClass: ZtAstDeclaration {
-//     ZtAstReference[] baseTypes;
-//     ZtAstDeclaration[] members;
-// }
+class ZtAstClass: ZtAstDeclaration {
+    ZtAstReference[] baseTypes;
+    ZtAstDeclaration[] members;
+}
 
 // class ZtAstInterface: ZtAstDeclaration {
 //     ZtAstReference[] baseTypes;
@@ -162,12 +162,12 @@ class ZtAstTypeOf: ZtAstReference {
 }
 
 class ZtAstBinary: ZtAstExpression {
-    enum Operator:int {
+    enum Operator:string {
         add = ZtToken.Type.tk_plus, 
         subtract = ZtToken.Type.tk_minus, 
-        multiply = ZtToken.Type.tk_asterisk, 
-        divide = ZtToken.Type.tk_slash, 
-        modulo = ZtToken.Type.tk_percent, 
+        multiply = ZtToken.Type.tk_multiply, 
+        divide = ZtToken.Type.tk_divide, 
+        modulo = ZtToken.Type.tk_modulo, 
         concat = ZtToken.Type.tk_tilde, 
         equal = ZtToken.Type.tk_equal, 
         notEqual = ZtToken.Type.tk_notEqual, 
@@ -178,11 +178,11 @@ class ZtAstBinary: ZtAstExpression {
         and = ZtToken.Type.tk_logicalAnd, 
         or = ZtToken.Type.tk_logicalOr, 
         xor = ZtToken.Type.tk_logicalXor, 
-        bitwiseAnd = ZtToken.Type.tk_ampersand, 
-        bitwiseOr = ZtToken.Type.tk_poll, 
-        bitwiseXor = ZtToken.Type.tk_hash,
-        bitwiseShiftLeft = ZtToken.Type.tk_shiftLeft, 
-        bitwiseShiftRight = ZtToken.Type.tk_shiftRight,
+        bitAnd = ZtToken.Type.tk_bitAnd, 
+        bitOr = ZtToken.Type.tk_bitOr, 
+        bitXor = ZtToken.Type.tk_bitXor,
+        bitShiftLeft = ZtToken.Type.tk_shiftLeft, 
+        bitShiftRight = ZtToken.Type.tk_shiftRight,
     }
 
     ZtAstExpression lhs, rhs;
@@ -190,15 +190,15 @@ class ZtAstBinary: ZtAstExpression {
 }
 
 class ZtAstUnary: ZtAstExpression {
-    enum Operator:int {
+    enum Operator:string {
         increment = ZtToken.Type.tk_increment, 
         decrement = ZtToken.Type.tk_decrement,
         positive = ZtToken.Type.tk_plus,
         negative = ZtToken.Type.tk_minus, 
         not = ZtToken.Type.tk_not, 
-        bitwiseNot = ZtToken.Type.tk_tilde, 
-        postIncrement = 75, 
-        postDecrement = 76
+        bitNot = ZtToken.Type.tk_tilde, 
+        postIncrement = "post-increment(++)", 
+        postDecrement = "post-decrement(--)"
     }
 
     ZtAstExpression subject;
@@ -206,7 +206,7 @@ class ZtAstUnary: ZtAstExpression {
 }
 
 class ZtAstAssign: ZtAstExpression {
-    enum Operator:int { 
+    enum Operator:string { 
         assign = ZtToken.Type.tk_assign, 
         add = ZtToken.Type.tk_assignAdd, 
         subtract = ZtToken.Type.tk_assignSubtract, 

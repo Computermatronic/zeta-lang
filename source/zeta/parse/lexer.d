@@ -20,7 +20,7 @@ struct ZtLexer {
     private {
         string buffer;
         ZtToken lastToken;
-        bool m_empty = true;
+        bool hasToken, hasEof;
     }
     string name;
     string source;
@@ -28,20 +28,21 @@ struct ZtLexer {
     this(string name, string source) { 
         this.name = name;
         this.buffer = this.source = source;
-        this.m_empty = !this.parseToken();
+        this.hasToken = this.parseToken();
     }
 
-    @property bool empty() { return m_empty; }
+    @property bool empty() { return !hasToken; }
 
     @property typeof(this) save() { return this; }
 
     ZtToken front() {
-        if (empty) return ZtToken(ZtToken.Type.tk_eof, currentLocation, "<End of File>");
-        return lastToken;
+        if (hasToken) return lastToken;
+        else assert(0, "Attempting to read past the end of an lexer");
     }
 
     void popFront() {
-        m_empty = !this.parseToken();
+        if (hasToken) hasToken = this.parseToken();
+        else assert(0, "Attempting to popFront() past the end of an lexer");
     }
 
     private {
@@ -69,7 +70,7 @@ struct ZtLexer {
                         if (!tokenName.all!isIdentifierChar || !lastN.isIdentifierChar) {
                             auto location = currentLocation;
                             buffer.popFrontN(tokenName.length);
-                            lastToken = ZtToken(tokenLiterals[tokenName], location, tokenName);
+                            lastToken = ZtToken(cast(ZtToken.Type)tokenName, location, tokenName);
                             return true;
                         }
                     }
@@ -80,7 +81,10 @@ struct ZtLexer {
                 lastToken = ZtToken(ZtToken.Type.ud_unknown, currentLocation, cast(string)[buffer.stealFront]);
                 return true;
             }
-            return false;
+            if (!hasEof) {
+                lastToken = ZtToken(ZtToken.type.ud_eof, currentLocation, ZtToken.type.ud_eof);
+                return hasEof = true;
+            } else return false;
         }
 
         string parseLineComment() {

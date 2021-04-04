@@ -35,6 +35,8 @@ function main() {
     writeln(variable);
     vargs(variable, 20, "string", [ 1, 2, 3] );
 
+    //def f = new:integer(5);
+
     return 0;
 }
 

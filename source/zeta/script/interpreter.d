@@ -99,7 +99,8 @@ final class ZtScriptInterpreter {
     }
 
     void execute(ZtAstDef node) { 
-        context.define(node.name, evaluate(node.initializer).deRefed);
+        if (node.initializer is null) context.define(node.name, nullType.nullValue);
+        else context.define(node.name, evaluate(node.initializer).deRefed);
     }
 
     void execute(ZtAstImport node) { 
@@ -108,6 +109,13 @@ final class ZtScriptInterpreter {
 
     void execute(ZtAstFunction node) { 
         context.define(node.name, functionType.make(node, context));
+    }
+
+    void execute(ZtAstClass node) {
+        // auto classType = new ZtClassType(node, context);
+        // classType.register(this);
+        // types ~= classType;
+        // context.define(node.name, metaType.make(classType));
     }
 
     void execute(ZtAstIf node) { 
@@ -231,11 +239,11 @@ final class ZtScriptInterpreter {
             case and: return booleanType.make(evaluate(node.lhs).op_eval() && evaluate(node.rhs).op_eval());
             case or: return booleanType.make(evaluate(node.lhs).op_eval() || evaluate(node.rhs).op_eval());
             case xor: return booleanType.make(evaluate(node.lhs).op_eval() != evaluate(node.rhs).op_eval());
-            case bitwiseAnd: return evaluate(node.lhs).op_bitAnd(evaluate(node.rhs));
-            case bitwiseOr: return evaluate(node.lhs).op_bitOr(evaluate(node.rhs));
-            case bitwiseXor: return evaluate(node.lhs).op_bitXor(evaluate(node.rhs));
-            case bitwiseShiftLeft: return evaluate(node.lhs).op_bitShiftLeft(evaluate(node.rhs));
-            case bitwiseShiftRight: return evaluate(node.lhs).op_bitShiftRight(evaluate(node.rhs));
+            case bitAnd: return evaluate(node.lhs).op_bitAnd(evaluate(node.rhs));
+            case bitOr: return evaluate(node.lhs).op_bitOr(evaluate(node.rhs));
+            case bitXor: return evaluate(node.lhs).op_bitXor(evaluate(node.rhs));
+            case bitShiftLeft: return evaluate(node.lhs).op_bitShiftLeft(evaluate(node.rhs));
+            case bitShiftRight: return evaluate(node.lhs).op_bitShiftRight(evaluate(node.rhs));
         }
     }
 
@@ -245,7 +253,7 @@ final class ZtScriptInterpreter {
             case decrement: auto v = evaluate(node.subject); v.op_decrement(); return v;
             case positive: return evaluate(node.subject).op_positive();
             case negative: return evaluate(node.subject).op_negative();
-            case bitwiseNot: return evaluate(node.subject).op_bitNot();
+            case bitNot: return evaluate(node.subject).op_bitNot();
             case not: return booleanType.make(!evaluate(node.subject).op_eval());
             case postIncrement: auto v = evaluate(node.subject); auto u = v.deRefed(); v.op_increment(); return u;
             case postDecrement: auto v = evaluate(node.subject); auto u = v.deRefed(); v.op_decrement(); return u;
@@ -297,7 +305,9 @@ final class ZtScriptInterpreter {
     }
 
     ZtValue evaluate(ZtAstNew node) { 
-        assert(0, "Not implemented!");
+        auto result = evaluate(node.type);
+        if (result.type == metaType) return result.m_type.op_new(evaluate(node.arguments));
+        else assert(0, "Cannot instantise non-type");
     }
 
     ZtValue evaluate(ZtAstArray node) { 

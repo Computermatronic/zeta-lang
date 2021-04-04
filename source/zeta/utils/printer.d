@@ -189,7 +189,7 @@ module zeta.utils.printer;
 //                 output.put("!");
 //                 node.subject.accept(this);
 //                 break;
-//             case bitwiseNot:
+//             case  bitNot:
 //                 output.put("~");
 //                 node.subject.accept(this);
 //                 break;
@@ -224,10 +224,10 @@ module zeta.utils.printer;
 //             case subtract:
 //                 output.put("-");
 //                 break;
-//             case bitwiseShiftLeft:
+//             case  bitShiftLeft:
 //                 output.put("<<");
 //                 break;
-//             case bitwiseShiftRight:
+//             case  bitShiftRight:
 //                 output.put(">>");
 //                 break;
 //             case greaterThan: 
@@ -242,13 +242,13 @@ module zeta.utils.printer;
 //             case lessThanEqual:
 //                 output.put("<=");
 //                 break;
-//             case bitwiseAnd:
+//             case  bitAnd:
 //                 output.put("&");
 //                 break;
-//             case bitwiseOr:
+//             case  bitOr:
 //                 output.put("|");
 //                 break;
-//             case bitwiseXor:
+//             case  bitXor:
 //                 output.put("^");
 //                 break;
 //             case and:

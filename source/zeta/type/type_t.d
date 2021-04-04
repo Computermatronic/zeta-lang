@@ -10,6 +10,7 @@ import std.algorithm;
 import std.array;
 import zeta.script.interpreter;
 import zeta.script.exception;
+import zeta.script.context;
 
 abstract class ZtType {
     abstract void register(ZtScriptInterpreter interpreter);
@@ -18,7 +19,10 @@ abstract class ZtType {
 
     abstract @property string op_tostring(ZtValue* self);
     bool op_eval(ZtValue* self) { return true; }
-    ZtValue op_cast(ZtValue* self, ZtType type) { throw new RuntimeException("Cannot convert from type "~this.name~" to "~type.name); }
+    ZtValue op_cast(ZtValue* self, ZtType type) { 
+        if (type == this) return self.deRef;
+        else throw new RuntimeException("Cannot convert from type "~this.name~" to "~type.name);
+    }
 
     bool op_equal(ZtValue* self, ZtValue rhs) { return *self == rhs; }
     int op_cmp(ZtValue* self, ZtValue rhs) { throw new RuntimeException("Cannot cmp type "~this.name~" and "~rhs.type.name); }
@@ -66,6 +70,7 @@ struct ZtValue {
         ZtValue[] m_array;
         ZtValue delegate(ZtScriptInterpreter, ZtValue[]) m_native;
         ZtType m_type;
+        // ZtLexicalContext m_class;
         ZtValue* m_ref;
     }
     ZtType _type;
