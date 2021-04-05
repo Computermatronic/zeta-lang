@@ -18,9 +18,9 @@ function main() {
     for(def i = 0; i < 10; i++) {
         buffer ~= cast:string(i);
         buffer ~= " ";
-        with(buffer) {
-            writeln(length);
-        }
+    }
+    with(buffer) {
+        writeln(length);
     }
     writeln(buffer);
 

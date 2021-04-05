@@ -64,9 +64,26 @@ mixin template MultiDispatchImpl(string name) {
                     bestMatch = () => overload(params);
             }
         }
-        assert(maxScore != 0, "Cannot find valid overload for " ~ name ~ Args.stringof);
-        assert(!isAmbiguous, "Multiple overloads match" ~ name ~ Args.stringof);
+        assert(maxScore != 0,
+                "Cannot find valid overload for " ~ name ~ describeArguments(args));
+        assert(!isAmbiguous, "Multiple overloads match" ~ name ~ describeArguments(args));
         return bestMatch();
+    }
+
+    string describeArguments(Args...)(Args args) {
+        import std.array : Appender;
+
+        Appender!string result;
+        result.put("(");
+        foreach (i, arg; args) {
+            static if (!is(typeof(arg) == string)) result.put(arg.toString);
+            else result.put(arg);
+            if (i + 1 == Args.length)
+                result.put(")");
+            else
+                result.put(", ");
+        }
+        return result.data;
     }
 
     template isCompatableWith(alias tuple1, alias tuple2) {

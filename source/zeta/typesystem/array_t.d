@@ -65,6 +65,15 @@ class ZtArrayType : ZtType {
             || (rhs.type == this && self.m_array == rhs.m_array);
     }
 
+    override ZtValue op_binary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
+        if (op != ZtAstBinary.Operator.concat)
+            return super.op_binary(self, op, rhs);
+        else if (rhs.type == this)
+            return make(self.m_array ~ rhs.m_array);
+        else
+            return make(self.m_array ~ rhs);
+    }
+
     override ZtValue op_index(ZtValue* self, ZtValue[] args) {
         if (args.length != 1 || args[0].type != interpreter.integerType)
             return super.op_index(self, args);
@@ -82,12 +91,14 @@ class ZtArrayType : ZtType {
             return super.op_dispatch(self, id);
         }
     }
+    //TODO: implement op_dispatchAssign and op_indexAssign methods from new Type API in order to get rid of transparent references.
 
-    override ZtValue op_concat(ZtValue* self, ZtValue rhs) {
-        return make(self.m_array ~ rhs.type.op_cast(&rhs, this).m_array);
-    }
-
-    override void op_concatAssign(ZtValue* self, ZtValue rhs) {
-        self.m_array ~= rhs.type.op_cast(&rhs, this).m_array;
+    override void op_assignBinary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
+        if (op != ZtAstBinary.Operator.concat)
+            super.op_binary(self, op, rhs);
+        else if (rhs.type == this)
+            self.m_array ~= rhs.m_array;
+        else
+            self.m_array ~= rhs;
     }
 }

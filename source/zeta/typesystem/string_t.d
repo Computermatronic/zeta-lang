@@ -69,6 +69,13 @@ class ZtStringType : ZtType {
             return false;
     }
 
+    override ZtValue op_binary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
+        if (rhs.type != this || op != ZtAstBinary.Operator.concat)
+            return super.op_binary(self, op, rhs);
+        else
+            return make(self.m_string ~ rhs.m_string);
+    }
+
     override ZtValue op_index(ZtValue* self, ZtValue[] args) {
         if (args.length != 1 || args[0].type != interpreter.integerType)
             return super.op_index(self, args);
@@ -86,16 +93,12 @@ class ZtStringType : ZtType {
             return super.op_dispatch(self, id);
         }
     }
+    //TODO: implement op_dispatchAssign and op_indexAssign methods from new Type API.
 
-    override ZtValue op_concat(ZtValue* self, ZtValue rhs) {
-        if (rhs.type != this)
-            super.op_concat(self, rhs);
-        return make(self.m_string ~ rhs.m_string);
-    }
-
-    override void op_concatAssign(ZtValue* self, ZtValue rhs) {
-        if (rhs.type != this)
-            super.op_concat(self, rhs);
-        self.m_string ~= rhs.m_string;
+    override void op_assignBinary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
+        if (rhs.type != this || op != ZtAstBinary.Operator.concat)
+            super.op_assignBinary(self, op, rhs);
+        else
+            self.m_string ~= rhs.m_string;
     }
 }

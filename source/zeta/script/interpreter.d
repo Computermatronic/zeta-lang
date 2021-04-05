@@ -133,7 +133,7 @@ final class ZtScriptInterpreter {
 
     void execute(ZtAstIf node) {
         stack.insertFront(new ZtLexicalContext(context));
-        if (evaluate(node.subject).op_eval())
+        if (evaluate(node.condition).op_eval())
             execute(node.members);
         else
             execute(node.elseMembers);
@@ -142,13 +142,13 @@ final class ZtScriptInterpreter {
 
     void execute(ZtAstSwitch node) {
         stack.insertFront(new ZtLexicalContext(context));
-        auto cond = evaluate(node.subject);
+        auto cond = evaluate(node.condition);
         bool isFallthrough = false;
         size_t elseCaseId;
         for (size_t i = 0; i < node.members.length; i++) {
             if (node.members[i].isElseCase)
                 elseCaseId = i;
-            auto matches = node.members[i].subjects.any!((exp) => evaluate(exp).op_equal(cond));
+            auto matches = node.members[i].conditions.any!((exp) => evaluate(exp).op_equal(cond));
             if (matches || isFallthrough) {
                 execute(node.members[i].members);
                 if (isReturning)
@@ -181,7 +181,7 @@ final class ZtScriptInterpreter {
 
     void execute(ZtAstWhile node) {
         stack.insertFront(new ZtLexicalContext(context));
-        while (evaluate(node.subject).op_eval()) {
+        while (evaluate(node.condition).op_eval()) {
             stack.insertFront(new ZtLexicalContext(context));
             execute(node.members);
             if (breakLevel > 0) {
@@ -224,13 +224,13 @@ final class ZtScriptInterpreter {
             }
             stack.removeFront();
         }
-        while (evaluate(node.subject).op_eval());
+        while (evaluate(node.condition).op_eval());
     }
 
     void execute(ZtAstFor node) {
         stack.insertFront(new ZtLexicalContext(context));
-        execute(node.initializer);
-        for (; evaluate(node.subject).op_eval(); evaluate(node.step)) {
+        execute(node.definition);
+        for (; evaluate(node.condition).op_eval(); evaluate(node.step)) {
             stack.insertFront(new ZtLexicalContext(context));
             execute(node.members);
             if (breakLevel > 0) {
@@ -258,13 +258,13 @@ final class ZtScriptInterpreter {
     }
 
     void execute(ZtAstWith node) {
-        stack.insertFront(new ZtWithContext(evaluate(node.subject), context));
+        stack.insertFront(new ZtWithContext(evaluate(node.aggregate), context));
         execute(node.members);
         stack.removeFront();
     }
 
     void execute(ZtAstReturn node) {
-        returnValue = evaluate(node.subject);
+        returnValue = evaluate(node.expression);
         isReturning = true;
     }
 
@@ -277,7 +277,7 @@ final class ZtScriptInterpreter {
     }
 
     void execute(ZtAstExpressionStatement node) {
-        evaluate(node.subject);
+        evaluate(node.expression);
     }
 
     ZtValue evaluate(ZtAstIdentifier node) {
@@ -285,139 +285,93 @@ final class ZtScriptInterpreter {
     }
 
     ZtValue evaluate(ZtAstDispatch node) {
-        return evaluate(node.subject).op_dispatch(node.name);
+        return evaluate(node.lhs).op_dispatch(node.name);
     }
 
     ZtValue evaluate(ZtAstSubscript node) {
-        return evaluate(node.subject).op_index(evaluate(node.arguments));
+        return evaluate(node.lhs).op_index(evaluate(node.arguments));
     }
 
     ZtValue evaluate(ZtAstBinary node) {
-        with (ZtAstBinary.Operator) final switch (node.operator) {
-        case add:
-            return evaluate(node.lhs).op_add(evaluate(node.rhs));
-        case subtract:
-            return evaluate(node.lhs).op_subtract(evaluate(node.rhs));
-        case multiply:
-            return evaluate(node.lhs).op_multiply(evaluate(node.rhs));
-        case divide:
-            return evaluate(node.lhs).op_divide(evaluate(node.rhs));
-        case modulo:
-            return evaluate(node.lhs).op_modulo(evaluate(node.rhs));
-        case concat:
-            return evaluate(node.lhs).op_concat(evaluate(node.rhs));
-        case equal:
-            return booleanType.make(evaluate(node.lhs).op_equal(evaluate(node.rhs)));
-        case notEqual:
-            return booleanType.make(!evaluate(node.lhs).op_equal(evaluate(node.rhs)));
-        case lessThan:
-            return booleanType.make(evaluate(node.lhs).op_cmp(evaluate(node.rhs)) < 0);
-        case greaterThan:
-            return booleanType.make(evaluate(node.lhs).op_cmp(evaluate(node.rhs)) > 0);
-        case lessThanEqual:
-            return booleanType.make(evaluate(node.lhs).op_cmp(evaluate(node.rhs)) >= 0);
-        case greaterThanEqual:
-            return booleanType.make(evaluate(node.lhs).op_cmp(evaluate(node.rhs)) <= 0);
+        return evaluate(node.lhs).op_binary(node.operator, evaluate(node.rhs));
+    }
+
+    ZtValue evaluate(ZtAstLogical node) {
+        bool result;
+        auto lhs = evaluate(node.lhs);
+        with(ZtAstLogical.Operator) final switch(node.operator) {
         case and:
-            return booleanType.make(evaluate(node.lhs).op_eval() && evaluate(node.rhs).op_eval());
+            result = lhs.op_eval() && evaluate(node.rhs).op_eval();
+            break;
         case or:
-            return booleanType.make(evaluate(node.lhs).op_eval() || evaluate(node.rhs).op_eval());
+            result = lhs.op_eval() || evaluate(node.rhs).op_eval();
+            break;
         case xor:
-            return booleanType.make(evaluate(node.lhs).op_eval() != evaluate(node.rhs).op_eval());
-        case bitAnd:
-            return evaluate(node.lhs).op_bitAnd(evaluate(node.rhs));
-        case bitOr:
-            return evaluate(node.lhs).op_bitOr(evaluate(node.rhs));
-        case bitXor:
-            return evaluate(node.lhs).op_bitXor(evaluate(node.rhs));
-        case bitShiftLeft:
-            return evaluate(node.lhs).op_bitShiftLeft(evaluate(node.rhs));
-        case bitShiftRight:
-            return evaluate(node.lhs).op_bitShiftRight(evaluate(node.rhs));
+            result = lhs.op_eval() != evaluate(node.rhs).op_eval();
+            break;
+        case equal:
+            result = lhs.op_equal(evaluate(node.rhs));
+            break;
+        case notEqual:
+            result = !lhs.op_equal(evaluate(node.rhs));
+            break;
+        case lessThan:
+            result = lhs.op_cmp(evaluate(node.rhs)) < 0;
+            break;
+        case greaterThan:
+            result = lhs.op_cmp(evaluate(node.rhs)) > 0;
+            break;
+        case lessThanEqual:
+            result = lhs.op_cmp(evaluate(node.rhs)) <= 0;
+            break;
+        case greaterThanEqual:
+            result = lhs.op_cmp(evaluate(node.rhs)) >= 0;
+            break;
         }
+        return booleanType.make(result);
     }
 
     ZtValue evaluate(ZtAstUnary node) {
-        with (ZtAstUnary.Operator) final switch (node.operator) {
-        case increment:
-            auto v = evaluate(node.subject);
-            v.op_increment();
-            return v;
-        case decrement:
-            auto v = evaluate(node.subject);
-            v.op_decrement();
-            return v;
-        case positive:
-            return evaluate(node.subject).op_positive();
-        case negative:
-            return evaluate(node.subject).op_negative();
-        case bitNot:
-            return evaluate(node.subject).op_bitNot();
-        case not:
-            return booleanType.make(!evaluate(node.subject).op_eval());
-        case postIncrement:
-            auto v = evaluate(node.subject);
-            auto u = v.deRefed();
-            v.op_increment();
-            return u;
-        case postDecrement:
-            auto v = evaluate(node.subject);
-            auto u = v.deRefed();
-            v.op_decrement();
-            return u;
-        }
+        auto rhs = evaluate(node.rhs);
+        if (node.operator == ZtAstUnary.Operator.not) return booleanType.make(!rhs.op_eval());
+        if (node.isPostOp) {
+            auto result = rhs.deRefed();
+            rhs.op_unary(node.operator);
+            return result;
+        } else
+            return rhs.op_unary(node.operator);
     }
 
     ZtValue evaluate(ZtAstTrinaryOperator node) {
-        return evaluate(node.subject).op_eval ? evaluate(node.lhs) : evaluate(node.rhs);
+        return evaluate(node.condition).op_eval ? evaluate(node.lhs) : evaluate(node.rhs);
     }
 
     ZtValue evaluate(ZtAstAssign node) {
-        auto lhs = evaluate(node.subject);
+        auto rhs = evaluate(node.rhs).deRefed();
+        // if (auto identifier = cast(ZtAstIdentifier)node.lhs) {
+        //     return rhs.deRefed();
+        // } else if (auto dispatch = cast(ZtAstDispatch)node.lhs) {
+        //     return rhs.deRefed();
+        // } else if (auto index = cast(ZtAstSubscript)node.lhs) {
+        //     return rhs.deRefed();
+        // } else {
+        //TODO: implement proper assignment behavior instead of relying on transparent references to do the heavy lifting.
+        auto lhs = evaluate(node.lhs);
         assert(lhs.isRef, "Error: Cannot assign RValue");
-        with (ZtAstAssign.Operator) final switch (node.operator) {
-        case assign:
-            *lhs._val.m_ref = evaluate(node.assignment).deRefed;
-            break;
-        case add:
-            *lhs._val.m_ref = lhs.op_add(evaluate(node.assignment));
-            break;
-        case subtract:
-            *lhs._val.m_ref = lhs.op_subtract(evaluate(node.assignment));
-            break;
-        case multiply:
-            *lhs._val.m_ref = lhs.op_multiply(evaluate(node.assignment));
-            break;
-        case divide:
-            *lhs._val.m_ref = lhs.op_divide(evaluate(node.assignment));
-            break;
-        case modulo:
-            *lhs._val.m_ref = lhs.op_modulo(evaluate(node.assignment));
-            break;
-        case concat:
-            lhs.op_concatAssign(evaluate(node.assignment));
-            break;
-        case and:
-            *lhs._val.m_ref = lhs.op_bitAnd(evaluate(node.assignment));
-            break;
-        case or:
-            *lhs._val.m_ref = lhs.op_bitOr(evaluate(node.assignment));
-            break;
-        case xor:
-            *lhs._val.m_ref = lhs.op_bitXor(evaluate(node.assignment));
-            break;
-        }
-        return lhs.deRefed();
+        if (node.isPlainAssign) lhs = rhs;
+        else lhs.op_assignBinary(node.operator, rhs);
+        return rhs.deRefed();
+        // }
     }
 
     ZtValue evaluate(ZtAstCall node) {
-        auto fun = evaluate(node.subject);
+        auto fun = evaluate(node.lhs);
         auto args = node.arguments.map!((n) => evaluate(n))().array;
         return fun.op_call(args);
     }
 
     ZtValue evaluate(ZtAstApply node) {
-        auto lhs = evaluate(node.subject);
+        auto lhs = evaluate(node.lhs);
         if (lhs.type != nullType)
             return lhs.op_dispatch(node.name);
         else
@@ -427,9 +381,9 @@ final class ZtScriptInterpreter {
     ZtValue evaluate(ZtAstCast node) {
         auto result = evaluate(node.type);
         if (result.type == metaType)
-            return evaluate(node.subject).op_cast(result.m_type);
+            return evaluate(node.rhs).op_cast(result.m_type);
         else
-            return evaluate(node.subject).op_cast(result.type);
+            return evaluate(node.rhs).op_cast(result.type);
     }
 
     ZtValue evaluate(ZtAstIs node) {
@@ -445,7 +399,7 @@ final class ZtScriptInterpreter {
     }
 
     ZtValue evaluate(ZtAstArray node) {
-        return arrayType.make(evaluate(node.members));
+        return arrayType.make(evaluate(node.expressions));
     }
 
     ZtValue evaluate(ZtAstString node) {

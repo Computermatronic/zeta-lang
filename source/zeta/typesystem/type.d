@@ -8,7 +8,8 @@ module zeta.typesystem.type;
 
 import std.algorithm;
 import std.array;
-import zeta.parse.ast;
+import zeta.parse.token;
+public import zeta.parse.ast;
 import zeta.script.interpreter;
 import zeta.script.exception;
 import zeta.script.context;
@@ -47,6 +48,15 @@ abstract class ZtType {
                 (element) => element.type.name).join(", ") ~ ")");
     }
 
+    ZtValue op_unary(ZtValue* self, ZtAstUnary.Operator op) {
+        throw new RuntimeException("Cannot '" ~ op ~ "' type " ~ this.name);
+    }
+
+    ZtValue op_binary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
+        throw new RuntimeException(
+                "Cannot'" ~ op ~ "' with types " ~ this.name ~ " and " ~ rhs.type.name);
+    }
+
     ZtValue op_index(ZtValue* self, ZtValue[] args) {
         throw new RuntimeException("Cannot index type " ~ this.name ~ " with [" ~ args.map!(
                 (element) => element.type.name).join(", ") ~ "]");
@@ -56,75 +66,23 @@ abstract class ZtType {
         throw new RuntimeException("No such member " ~ id ~ " for type " ~ this.name);
     }
 
-    ZtValue op_concat(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot concat type " ~ this.name ~ " and " ~ rhs.type.name);
+    void op_assignBinary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
+        throw new RuntimeException(
+                "Cannot'" ~ op ~ "=' with types " ~ this.name ~ " and " ~ rhs.type.name);
     }
 
-    void op_concatAssign(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot concat type " ~ this.name ~ " and " ~ rhs.type.name);
+    void op_assignIndex(ZtValue* self, ZtValue[] args, ZtAstBinary op, ZtValue rhs) {
+        throw new RuntimeException("Cannot index type " ~ this.name ~ " with [" ~ args.map!(
+                (element) => element.type.name).join(", ") ~ "]");
     }
 
-    ZtValue op_add(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot add type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_subtract(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot subtract type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_multiply(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot multiply type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_divide(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot divide type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_modulo(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot modulo type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_bitAnd(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot bit and type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_bitOr(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot bit or type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_bitXor(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot bit xor type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_bitShiftLeft(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot bitshift type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_bitShiftRight(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot bitshift type " ~ this.name ~ " and " ~ rhs.type.name);
-    }
-
-    ZtValue op_positive(ZtValue* self) {
-        throw new RuntimeException("Cannot positive type " ~ this.name);
-    }
-
-    ZtValue op_negative(ZtValue* self) {
-        throw new RuntimeException("Cannot negate type " ~ this.name);
-    }
-
-    ZtValue op_bitNot(ZtValue* self) {
-        throw new RuntimeException("Cannot bit invert type " ~ this.name);
-    }
-
-    void op_increment(ZtValue* self) {
-        throw new RuntimeException("Cannot increment type " ~ this.name);
-    }
-
-    void op_decrement(ZtValue*) {
-        throw new RuntimeException("Cannot decrement type " ~ this.name);
+    void op_assignDispatch(ZtValue* self, string id, ZtValue rhs) {
+        throw new RuntimeException("No such member " ~ id ~ " for type " ~ this.name);
     }
 }
 
+// This is a funky way to implement transparent references. Basically the 
+// opDispatch method forwards all requests to the m_ref.
 struct ZtValue {
     union Val {
         bool m_bool;
