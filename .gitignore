@@ -1,4 +1,7 @@
 .dub
+.vs
+.vscode
+*.selections
 dub.selections.json
 docs.json
 __dummy.html

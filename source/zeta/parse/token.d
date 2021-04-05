@@ -6,15 +6,15 @@
  */
 module zeta.parse.token;
 
-import std.algorithm: sort, reverse;
-import std.range: retro;
-import std.array: array;
-import std.format: format;
-import std.variant: Algebraic;
-import std.traits: EnumMembers;
+import std.algorithm : sort, reverse;
+import std.range : retro;
+import std.array : array;
+import std.format : format;
+import std.variant : Algebraic;
+import std.traits : EnumMembers;
 
 struct ZtToken {
-    enum Type:string {
+    enum Type : string {
         tk_plus = "+",
         tk_minus = "-",
         tk_multiply = "*",
@@ -107,6 +107,7 @@ struct ZtToken {
         ud_float = "<Floating Point Literal>",
         ud_unknown = "<Unknown>"
     }
+
     alias Literal = Algebraic!(ulong, long, double, dchar, string);
 
     Type type;
@@ -121,8 +122,10 @@ struct ZtSrcLocation {
 
     static ZtSrcLocation fromBuffer(string text, size_t position, string file) {
         import std.string : splitLines;
-        auto lines = text[0..position].splitLines();
-        return ZtSrcLocation(lines.length, lines.length == 0 ? 1 : lines[$-1].length, position, file);
+
+        auto lines = text[0 .. position].splitLines();
+        return ZtSrcLocation(lines.length, lines.length == 0
+                ? 1 : lines[$ - 1].length, position, file);
     }
 
     @property string toString() const {
@@ -131,4 +134,4 @@ struct ZtSrcLocation {
 }
 
 //The last 8 members of ZtToken.Type are user defined, so we don't want to include them in token names.
-enum tokenNames = sort(cast(string[])[EnumMembers!(ZtToken.Type)][0..$-8]).reverse;
+enum tokenNames = sort(cast(string[])[EnumMembers!(ZtToken.Type)][0 .. $ - 8]).reverse;

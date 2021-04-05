@@ -9,7 +9,5 @@ module zeta.utils;
 public {
     import zeta.utils.dispatch;
     import zeta.utils.error;
-    import zeta.utils.printer;
     import zeta.utils.range;
 }
-    
