@@ -14,7 +14,7 @@ function main() {
         case "tart": writeln("tart");
         case else: writeln("else");
     }
-    def buffer = "";
+    def buffer = new:string();
     for(def i = 0; i < 10; i++) {
         buffer ~= cast:string(i);
         buffer ~= " ";
@@ -29,6 +29,12 @@ function main() {
     } else {
         writeln("less than 10");
     }
+
+    //def tbl = new:table();
+
+    //tbl["test"] = true;
+
+    //writeln(tbl["test"]);
 
     writeln(variable);
     test(variable);

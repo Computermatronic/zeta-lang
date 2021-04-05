@@ -16,51 +16,71 @@ module zeta.utils.dispatch;
  * This was really designed to replace the Visitor patten, rather than implement full multiple virtual dispatch.
  * Also, in cases where there are multiple potential return types for a given call, MultiDispatch will automatically place them
  * into an Algebraic of all possible types.
- */ 
-enum MultiDispatch(string name) = `mixin MultiDispatchImpl!"`~name~`" `~name~`impl; alias `~name~` = `~name~`impl.payload;`;
+ */
+enum MultiDispatch(string name) = `mixin MultiDispatchImpl!"` ~ name ~ `" `
+    ~ name ~ `impl; alias ` ~ name ~ ` = ` ~ name ~ `impl.payload;`;
+
 mixin template MultiDispatchImpl(string name) {
     import std.traits, std.meta, std.variant, std.typecons;
+
     auto payload(Args...)(Args args) {
-        enum isCompatableOverload(alias T) = isCompatableWith!(Tuple!(Parameters!T), Tuple!(Args)) && !is(T == payload);
-        alias CompatableOverloads = Filter!(isCompatableOverload, __traits(getOverloads, typeof(this), name));
-        static assert(CompatableOverloads.length > 0, "Cannot find valid overload for " ~ name ~ Args.stringof);
+        enum isCompatableOverload(alias T) = isCompatableWith!(Tuple!(Parameters!T),
+                    Tuple!(Args)) && !is(T == payload);
+        alias CompatableOverloads = Filter!(isCompatableOverload,
+                __traits(getOverloads, typeof(this), name));
+        static assert(CompatableOverloads.length > 0,
+                "Cannot find valid overload for " ~ name ~ Args.stringof);
         alias CompatableReturnTypes = NoDuplicates!(staticMap!(ReturnType, CompatableOverloads));
-        static if (CompatableReturnTypes.length == 1) alias CommonReturnType = CompatableReturnTypes[0];
-        else alias CommonReturnType = Algebraic!CompatableReturnTypes;
-        int maxScore; bool isAmbiguous;
+        static if (CompatableReturnTypes.length == 1)
+            alias CommonReturnType = CompatableReturnTypes[0];
+        else
+            alias CommonReturnType = Algebraic!CompatableReturnTypes;
+        int maxScore;
+        bool isAmbiguous;
         CommonReturnType delegate() bestMatch;
-        foreach(overload; CompatableOverloads) {
+        foreach (overload; CompatableOverloads) {
             alias Params = Parameters!overload;
             Params params;
             int score;
-            static foreach(i; 0..Args.length) {
-                params[i] = cast(Params[i])args[i];
-                static if(is(Params[i] == class)) if (params[i] !is null)
-                    score += BaseClassesTuple!(Params[i]).length + 1;
-                static if(is(Params[i] == interface)) if (params[i] !is null)
-                    score += InterfacesTuple!(Params[i]).length + 1;            }
-            if (score == maxScore) isAmbiguous = true;
+            static foreach (i; 0 .. Args.length) {
+                params[i] = cast(Params[i]) args[i];
+                static if (is(Params[i] == class))
+                    if (params[i]!is null)
+                        score += BaseClassesTuple!(Params[i]).length + 1;
+                static if (is(Params[i] == interface))
+                    if (params[i]!is null)
+                        score += InterfacesTuple!(Params[i]).length + 1;
+            }
+            if (score == maxScore)
+                isAmbiguous = true;
             if (score > maxScore) {
                 isAmbiguous = false;
                 maxScore = score;
-                static if(CompatableReturnTypes.length > 1 && !is(ReturnType!overload == void)) bestMatch = () => CommonReturnType(overload(params));
-                else static if(CompatableReturnTypes.length > 1) bestMatch = () { overload(params); return CommonReturnType(); };
-                else bestMatch = () => overload(params);
+                static if (CompatableReturnTypes.length > 1 && !is(ReturnType!overload == void))
+                    bestMatch = () => CommonReturnType(overload(params));
+                else static if (CompatableReturnTypes.length > 1)
+                    bestMatch = () { overload(params); return CommonReturnType(); };
+                else
+                    bestMatch = () => overload(params);
             }
         }
         assert(maxScore != 0, "Cannot find valid overload for " ~ name ~ Args.stringof);
         assert(!isAmbiguous, "Multiple overloads match" ~ name ~ Args.stringof);
         return bestMatch();
     }
+
     template isCompatableWith(alias tuple1, alias tuple2) {
-        static if (tuple1.length != tuple2.length) 
+        static if (tuple1.length != tuple2.length)
             enum isCompatableWith = false;
-        static foreach(i; 0..tuple2.length) {
-            static if(!is(typeof(isCompatableWith) == bool) && !(is(typeof(tuple1[i]) == typeof(tuple2[i])) || is(typeof(tuple1[i]): typeof(tuple2[i])) || is(typeof(tuple1[i]) == interface))) {
+        static foreach (i; 0 .. tuple2.length) {
+            static if (!is(typeof(isCompatableWith) == bool)
+                    && !(is(typeof(tuple1[i]) == typeof(tuple2[i]))
+                        || is(typeof(tuple1[i]) : typeof(tuple2[i]))
+                        || is(typeof(tuple1[i]) == interface))) {
                 enum isCompatableWith = false;
             }
         }
-        static if(!is(typeof(isCompatableWith) == bool))
+        static if (!is(typeof(isCompatableWith) == bool))
             enum isCompatableWith = true;
     }
 }

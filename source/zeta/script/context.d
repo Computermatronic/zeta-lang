@@ -6,7 +6,7 @@
  */
 module zeta.script.context;
 
-import zeta.type.type_t;
+import zeta.typesystem.type;
 import zeta.script.exception;
 
 class ZtLexicalContext {
@@ -18,28 +18,31 @@ class ZtLexicalContext {
     }
 
     ZtValue lookup(string name) {
-        auto result = name in table;
-        if (result !is null ) return makeRef(result);
-        else if (outer !is null) return outer.lookup(name);
-        else assert(0, "Error: no such variable "~name);
+        if (auto result = tryLookup(name))
+            return makeRef(result);
+        else
+            assert(0, `Error: no such def or function '` ~ name ~ `'exists`);
     }
 
     ZtValue* tryLookup(string name) {
         auto result = name in table;
-        if (result !is null ) return result;
-        else if (outer !is null) return outer.tryLookup(name);
-        else return null;
+        if (result !is null)
+            return result;
+        if (outer !is null)
+            result = outer.tryLookup(name);
+        return result;
     }
 
     void define(string name, ZtValue value) {
         auto result = this.tryLookup(name);
-        if (result !is null) *result = value;
-        else table[name] = value;
+        if (result !is null)
+            *result = value;
+        else
+            table[name] = value;
     }
 }
 
-
-class ZtWithContext: ZtLexicalContext {
+class ZtWithContext : ZtLexicalContext {
     ZtLexicalContext outer;
     ZtValue[string] table;
     ZtValue subject;
@@ -51,23 +54,34 @@ class ZtWithContext: ZtLexicalContext {
 
     override ZtValue lookup(string name) {
         auto result = name in table;
-        if (result !is null ) return makeRef(result);
-        try return subject.op_dispatch(name);
-        catch(RuntimeException e) { } //swallow
-        if (outer !is null) return outer.lookup(name);
-        else assert(0, "Error: no such variable "~name);
+        if (result !is null)
+            return makeRef(result);
+        try
+            return subject.op_dispatch(name);
+        catch (RuntimeException e) {
+            //swallow
+        }
+        if (outer !is null)
+            return outer.lookup(name);
+        else
+            assert(0, "Error: no such variable " ~ name);
     }
 
     override ZtValue* tryLookup(string name) {
         auto result = name in table;
-        if (result !is null ) return result;
-        else if (outer !is null) return outer.tryLookup(name);
-        else return null;
+        if (result !is null)
+            return result;
+        else if (outer !is null)
+            return outer.tryLookup(name);
+        else
+            return null;
     }
 
     override void define(string name, ZtValue value) {
         auto result = this.tryLookup(name);
-        if (result !is null) *result = value;
-        else table[name] = value;
+        if (result !is null)
+            *result = value;
+        else
+            table[name] = value;
     }
 }

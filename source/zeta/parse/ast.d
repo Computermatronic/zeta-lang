@@ -13,18 +13,18 @@ abstract class ZtAstNode {
     ZtSrcLocation location;
 }
 
-abstract class ZtAstStatement: ZtAstNode {
+abstract class ZtAstStatement : ZtAstNode {
     ZtAstAttribute[] attributes;
 }
 
-abstract class ZtAstDeclaration: ZtAstStatement {
+abstract class ZtAstDeclaration : ZtAstStatement {
     string name;
 }
 
-abstract class ZtAstExpression: ZtAstNode {
+abstract class ZtAstExpression : ZtAstNode {
 }
 
-abstract class ZtAstReference: ZtAstExpression {
+abstract class ZtAstReference : ZtAstExpression {
 }
 
 class ZtAstModule : ZtAstDeclaration {
@@ -37,17 +37,17 @@ class ZtAstModule : ZtAstDeclaration {
 //     ZtAstExpression initializer;
 // }
 
-class ZtAstDef: ZtAstDeclaration {
+class ZtAstDef : ZtAstDeclaration {
     ZtAstReference type;
     ZtAstExpression initializer;
 }
 
-class ZtAstImport: ZtAstDeclaration {
+class ZtAstImport : ZtAstDeclaration {
     string[] packageName;
-    string[] memberWhitelist; 
+    string[] memberWhitelist;
 }
 
-class ZtAstFunction: ZtAstDeclaration {
+class ZtAstFunction : ZtAstDeclaration {
     ZtAstReference type;
     ZtAstDef[] paramaters;
     ZtAstStatement[] members;
@@ -65,7 +65,7 @@ class ZtAstFunction: ZtAstDeclaration {
 //     ZtAstExpression initializer;
 // }
 
-class ZtAstClass: ZtAstDeclaration {
+class ZtAstClass : ZtAstDeclaration {
     ZtAstReference[] baseTypes;
     ZtAstDeclaration[] members;
 }
@@ -75,53 +75,53 @@ class ZtAstClass: ZtAstDeclaration {
 //     ZtAstDeclaration[] members;
 // }
 
-class ZtAstAttribute: ZtAstNode {
+class ZtAstAttribute : ZtAstNode {
     string name;
     ZtAstExpression[] arguments;
 }
 
-class ZtAstIf: ZtAstDeclaration {
+class ZtAstIf : ZtAstDeclaration {
     ZtAstExpression subject;
     ZtAstStatement[] members;
     ZtAstStatement[] elseMembers;
 }
 
-class ZtAstSwitch: ZtAstStatement {
+class ZtAstSwitch : ZtAstStatement {
     ZtAstExpression subject;
     ZtAstCase[] members;
 }
 
-class ZtAstCase: ZtAstStatement {
+class ZtAstCase : ZtAstStatement {
     ZtAstExpression[] subjects;
     ZtAstStatement[] members;
 
     bool isElseCase;
 }
 
-class ZtAstWhile: ZtAstStatement {
+class ZtAstWhile : ZtAstStatement {
     ZtAstExpression subject;
     ZtAstStatement[] members;
 }
 
-class ZtAstDoWhile: ZtAstStatement  {
+class ZtAstDoWhile : ZtAstStatement {
     ZtAstExpression subject;
     ZtAstStatement[] members;
 }
 
-class ZtAstFor: ZtAstStatement {
+class ZtAstFor : ZtAstStatement {
     ZtAstDef initializer;
     ZtAstExpression subject;
     ZtAstExpression step;
     ZtAstStatement[] members;
 }
 
-class ZtAstForeach: ZtAstDeclaration {
+class ZtAstForeach : ZtAstDeclaration {
     ZtAstDef[] initializers;
     ZtAstExpression subject;
     ZtAstStatement[] members;
 }
 
-class ZtAstWith: ZtAstStatement {
+class ZtAstWith : ZtAstStatement {
     ZtAstExpression subject;
     ZtAstReference type;
     ZtAstStatement[] members;
@@ -129,59 +129,59 @@ class ZtAstWith: ZtAstStatement {
     bool isCast;
 }
 
-class ZtAstReturn: ZtAstStatement {
+class ZtAstReturn : ZtAstStatement {
     ZtAstExpression subject;
 }
 
-class ZtAstBreak: ZtAstStatement {
+class ZtAstBreak : ZtAstStatement {
 }
 
-class ZtAstContinue: ZtAstStatement {
+class ZtAstContinue : ZtAstStatement {
 }
 
-class ZtAstExpressionStatement: ZtAstStatement {
+class ZtAstExpressionStatement : ZtAstStatement {
     ZtAstExpression subject;
 }
 
-class ZtAstIdentifier: ZtAstReference {
+class ZtAstIdentifier : ZtAstReference {
     string name;
 }
 
-class ZtAstDispatch: ZtAstReference {
+class ZtAstDispatch : ZtAstReference {
     ZtAstExpression subject;
     string name;
 }
 
-class ZtAstSubscript: ZtAstReference {
+class ZtAstSubscript : ZtAstReference {
     ZtAstExpression subject;
     ZtAstExpression[] arguments;
 }
 
-class ZtAstTypeOf: ZtAstReference {
+class ZtAstTypeOf : ZtAstReference {
     ZtAstExpression subject;
 }
 
-class ZtAstBinary: ZtAstExpression {
-    enum Operator:string {
-        add = ZtToken.Type.tk_plus, 
-        subtract = ZtToken.Type.tk_minus, 
-        multiply = ZtToken.Type.tk_multiply, 
-        divide = ZtToken.Type.tk_divide, 
-        modulo = ZtToken.Type.tk_modulo, 
-        concat = ZtToken.Type.tk_tilde, 
-        equal = ZtToken.Type.tk_equal, 
-        notEqual = ZtToken.Type.tk_notEqual, 
-        lessThan = ZtToken.Type.tk_lessThan, 
-        greaterThan = ZtToken.Type.tk_greaterThan, 
-        lessThanEqual = ZtToken.Type.tk_lessThanEqual, 
-        greaterThanEqual = ZtToken.Type.tk_greaterThanEqual, 
-        and = ZtToken.Type.tk_logicalAnd, 
-        or = ZtToken.Type.tk_logicalOr, 
-        xor = ZtToken.Type.tk_logicalXor, 
-        bitAnd = ZtToken.Type.tk_bitAnd, 
-        bitOr = ZtToken.Type.tk_bitOr, 
+class ZtAstBinary : ZtAstExpression {
+    enum Operator : string {
+        add = ZtToken.Type.tk_plus,
+        subtract = ZtToken.Type.tk_minus,
+        multiply = ZtToken.Type.tk_multiply,
+        divide = ZtToken.Type.tk_divide,
+        modulo = ZtToken.Type.tk_modulo,
+        concat = ZtToken.Type.tk_tilde,
+        equal = ZtToken.Type.tk_equal,
+        notEqual = ZtToken.Type.tk_notEqual,
+        lessThan = ZtToken.Type.tk_lessThan,
+        greaterThan = ZtToken.Type.tk_greaterThan,
+        lessThanEqual = ZtToken.Type.tk_lessThanEqual,
+        greaterThanEqual = ZtToken.Type.tk_greaterThanEqual,
+        and = ZtToken.Type.tk_logicalAnd,
+        or = ZtToken.Type.tk_logicalOr,
+        xor = ZtToken.Type.tk_logicalXor,
+        bitAnd = ZtToken.Type.tk_bitAnd,
+        bitOr = ZtToken.Type.tk_bitOr,
         bitXor = ZtToken.Type.tk_bitXor,
-        bitShiftLeft = ZtToken.Type.tk_shiftLeft, 
+        bitShiftLeft = ZtToken.Type.tk_shiftLeft,
         bitShiftRight = ZtToken.Type.tk_shiftRight,
     }
 
@@ -189,15 +189,15 @@ class ZtAstBinary: ZtAstExpression {
     Operator operator;
 }
 
-class ZtAstUnary: ZtAstExpression {
-    enum Operator:string {
-        increment = ZtToken.Type.tk_increment, 
+class ZtAstUnary : ZtAstExpression {
+    enum Operator : string {
+        increment = ZtToken.Type.tk_increment,
         decrement = ZtToken.Type.tk_decrement,
         positive = ZtToken.Type.tk_plus,
-        negative = ZtToken.Type.tk_minus, 
-        not = ZtToken.Type.tk_not, 
-        bitNot = ZtToken.Type.tk_tilde, 
-        postIncrement = "post-increment(++)", 
+        negative = ZtToken.Type.tk_minus,
+        not = ZtToken.Type.tk_not,
+        bitNot = ZtToken.Type.tk_tilde,
+        postIncrement = "post-increment(++)",
         postDecrement = "post-decrement(--)"
     }
 
@@ -205,17 +205,17 @@ class ZtAstUnary: ZtAstExpression {
     Operator operator;
 }
 
-class ZtAstAssign: ZtAstExpression {
-    enum Operator:string { 
-        assign = ZtToken.Type.tk_assign, 
-        add = ZtToken.Type.tk_assignAdd, 
-        subtract = ZtToken.Type.tk_assignSubtract, 
-        multiply = ZtToken.Type.tk_assignMultiply, 
-        divide = ZtToken.Type.tk_assignDivide, 
-        modulo = ZtToken.Type.tk_assignModulo, 
-        concat = ZtToken.Type.tk_assignConcat, 
-        and = ZtToken.Type.tk_assignAnd, 
-        or = ZtToken.Type.tk_assignOr, 
+class ZtAstAssign : ZtAstExpression {
+    enum Operator : string {
+        assign = ZtToken.Type.tk_assign,
+        add = ZtToken.Type.tk_assignAdd,
+        subtract = ZtToken.Type.tk_assignSubtract,
+        multiply = ZtToken.Type.tk_assignMultiply,
+        divide = ZtToken.Type.tk_assignDivide,
+        modulo = ZtToken.Type.tk_assignModulo,
+        concat = ZtToken.Type.tk_assignConcat,
+        and = ZtToken.Type.tk_assignAnd,
+        or = ZtToken.Type.tk_assignOr,
         xor = ZtToken.Type.tk_assignXor
     }
 
@@ -223,51 +223,51 @@ class ZtAstAssign: ZtAstExpression {
     Operator operator;
 }
 
-class ZtAstTrinaryOperator: ZtAstExpression {
+class ZtAstTrinaryOperator : ZtAstExpression {
     ZtAstExpression subject, lhs, rhs;
 }
 
-class ZtAstCall: ZtAstExpression {
+class ZtAstCall : ZtAstExpression {
     ZtAstExpression subject;
     ZtAstExpression[] arguments;
 }
 
-class ZtAstApply: ZtAstExpression {
+class ZtAstApply : ZtAstExpression {
     ZtAstExpression subject;
     string name;
 }
 
-class ZtAstCast: ZtAstExpression {
+class ZtAstCast : ZtAstExpression {
     ZtAstReference type;
     ZtAstExpression subject;
 }
 
-class ZtAstIs: ZtAstExpression {
+class ZtAstIs : ZtAstExpression {
     ZtAstExpression lhs, rhs;
 }
 
-class ZtAstNew: ZtAstExpression {
+class ZtAstNew : ZtAstExpression {
     ZtAstReference type;
     ZtAstExpression[] arguments;
 }
 
-class ZtAstArray: ZtAstExpression {
+class ZtAstArray : ZtAstExpression {
     ZtAstExpression[] members;
 }
 
-class ZtAstString: ZtAstExpression {
+class ZtAstString : ZtAstExpression {
     string literal;
 }
 
-class ZtAstChar: ZtAstExpression {
+class ZtAstChar : ZtAstExpression {
     dchar literal;
 }
 
-class ZtAstInteger: ZtAstExpression {
+class ZtAstInteger : ZtAstExpression {
     long literal;
-    
+
 }
 
-class ZtAstFloat: ZtAstExpression {
+class ZtAstFloat : ZtAstExpression {
     double literal;
 }
