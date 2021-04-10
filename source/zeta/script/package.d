@@ -6,8 +6,7 @@
  */
 module zeta.script;
 
-public {
-    import zeta.script.context;
-    import zeta.script.interpreter;
-    import zeta.script.exception;
-}
+public:
+import zeta.script.context;
+import zeta.script.interpreter;
+import zeta.script.exception;

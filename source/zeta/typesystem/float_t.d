@@ -7,10 +7,9 @@
 module zeta.typesystem.float_t;
 
 import std.conv;
-import zeta.typesystem.type;
-import zeta.script.interpreter;
-import zeta.utils.error;
-import zeta.script.exception;
+
+import zeta.utils;
+import zeta.script;
 import zeta.typesystem;
 
 class ZtFloatType : ZtType {

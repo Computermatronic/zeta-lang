@@ -6,30 +6,29 @@
  */
 module zeta.parse.token;
 
-import std.algorithm : sort, reverse;
-import std.range : retro;
-import std.array : array;
-import std.format : format;
-import std.variant : Algebraic;
-import std.traits : EnumMembers;
+import std.variant;
+import std.format;
+import std.traits;
+import std.algorithm;
 
 struct ZtToken {
+    alias Literal = Algebraic!(ulong, long, double, dchar, string);
     enum Type : string {
         op_plus = "+",
         op_minus = "-",
-        op_multiply = "*",
-        op_divide = "/",
-        op_modulo = "%",
+        op_asterisk = "*",
+        op_slash = "/",
+        op_percent = "%",
         op_tilde = "~",
-        op_bitAnd = "&",
-        op_bitOr = "|",
-        op_bitXor = "^",
+        op_ampersand = "&",
+        op_poll = "|",
+        op_circumflex = "^",
         op_shiftLeft = "<<",
         op_shiftRight = ">>",
-        
-        op_logicalAnd = "&&",
-        op_logicalOr = "||",
-        op_logicalXor = "^^",
+
+        op_increment = "++",
+        op_decrement = "--",
+        op_not = "!",
 
         op_assign = "=",
         op_assignAdd = "+=",
@@ -44,6 +43,10 @@ struct ZtToken {
         op_assignShiftLeft = "=<<",
         op_assignShiftRight = "=>>",
 
+        op_and = "&&",
+        op_or = "||",
+        op_xor = "^^",
+
         op_equal = "==",
         op_notEqual = "!=",
         op_greaterThan = ">",
@@ -51,18 +54,13 @@ struct ZtToken {
         op_greaterThanEqual = ">=",
         op_lessThanEqual = "<=",
 
-        op_increment = "++",
-        op_decrement = "--",
-        op_not = "!",
-
-        tk_question = "?",
-
         tk_dot = ".",
         tk_apply = ".?",
         tk_comma = ",",
         tk_colon = ":",
         tk_semicolon = ";",
         tk_variadic = "...",
+        tk_slice = "..",
 
         tk_leftParen = "(",
         tk_rightParen = ")",
@@ -101,17 +99,16 @@ struct ZtToken {
         kw_new = "new",
         kw_delete = "delete",
 
-        ud_eof = "<End of File>",
         ud_identifier = "<Identifier>",
         ud_attribute = "<Attribute>",
         ud_string = "<String Literal>",
         ud_char = "<Charecter Literal>",
         ud_integer = "<Integer Literal>",
         ud_float = "<Floating Point Literal>",
-        ud_unknown = "<Unknown>"
+        eof = "<End of File>",
+        unknown = "<Unknown Token>",
+        no_op = ""
     }
-
-    alias Literal = Algebraic!(ulong, long, double, dchar, string);
 
     Type type;
     ZtSrcLocation location;
@@ -136,5 +133,4 @@ struct ZtSrcLocation {
     }
 }
 
-//The last 8 members of ZtToken.Type are user defined, so we don't want to include them in token names.
-enum tokenNames = sort(cast(string[])[EnumMembers!(ZtToken.Type)][0 .. $ - 8]).reverse;
+enum tokenNames = sort(cast(string[])[EnumMembers!(ZtToken.Type)][0 .. $ - 9]).reverse;

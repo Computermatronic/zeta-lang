@@ -8,11 +8,11 @@ module zeta.typesystem.type;
 
 import std.algorithm;
 import std.array;
-import zeta.parse.token;
-public import zeta.parse.ast;
-import zeta.script.interpreter;
-import zeta.script.exception;
-import zeta.script.context;
+
+import zeta.utils;
+public import zeta.parse: ZtAstFunction, ZtAstBinary, ZtAstUnary;
+import zeta.script;
+import zeta.typesystem;
 
 abstract class ZtType {
     abstract void register(ZtScriptInterpreter interpreter);

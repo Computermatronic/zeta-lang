@@ -6,14 +6,15 @@
  */
 module zeta.parse.lexer;
 
-public import zeta.parse.token;
-import std.algorithm;
 import std.range;
-import std.string;
 import std.uni;
-import zeta.utils;
+import std.algorithm;
+import std.string;
 
-import std.stdio;
+import zeta.utils;
+import zeta.parse;
+
+public import zeta.parse.token;
 
 struct ZtLexer {
     mixin ErrorSink;
@@ -43,44 +44,44 @@ struct ZtLexer {
         if (hasToken)
             return lastToken;
         else
-            assert(0, "Attempting to read past the end of an lexer");
+            assert(0, "Attempting to read past the end of a lexer");
     }
 
     void popFront() {
         if (hasToken)
             hasToken = this.parseToken();
         else
-            assert(0, "Attempting to popFront() past the end of an lexer");
+            assert(0, "Attempting to popFront() past the end of a lexer");
     }
 
     private {
         bool parseToken() {
             while (!buffer.empty) {
-                if (buffer.front.isWhite) {
+                if (buffer.front.isWhite || buffer.front == '\0') {
                     buffer.popFront();
                     continue;
                 }
                 switch (buffer.take(2).array) {
-                case `//`:
+                case "//":
                     parseLineComment();
                     continue;
-                case `/*`:
+                case "/*":
                     parseBlockComment();
                     continue;
-                case `/+`:
+                case "/+":
                     parseNestedBlockComment();
                     continue;
                 default:
                     break;
                 }
-                switch (buffer.take(1).array) {
-                case `'`:
+                switch (buffer.front) {
+                case '\'':
                     lastToken = parseCharacter();
                     return true;
-                case `"`:
+                case '"':
                     lastToken = parseString();
                     return true;
-                case "`":
+                case '`':
                     lastToken = parseExactString();
                     return true;
                 default:
@@ -91,16 +92,14 @@ struct ZtLexer {
                     return true;
                 }
                 foreach (tokenName; tokenNames) {
-                    auto takeN = buffer.take(tokenName.length + 1).array;
-                    auto lastN = takeN.length > tokenName.length ? takeN[$ - 1] : '\0';
-                    takeN = takeN.length > tokenName.length ? takeN[0 .. $ - 1] : takeN;
-                    if (tokenName.equal(takeN)) {
-                        if (!tokenName.all!isIdentifierChar || !lastN.isIdentifierChar) {
-                            auto location = currentLocation;
-                            buffer.popFrontN(tokenName.length);
-                            lastToken = ZtToken(cast(ZtToken.Type) tokenName, location, tokenName);
-                            return true;
-                        }
+                    if (tokenName !is null && tokenName.equal(buffer.take(tokenName.length))) {
+                        if (tokenName.all!isIdentifierChar
+                                && buffer.drop(tokenName.length).front.isIdentifierChar)
+                            continue;
+                        auto location = currentLocation;
+                        buffer.popFrontN(tokenName.length);
+                        lastToken = ZtToken(cast(ZtToken.Type) tokenName, location, tokenName);
+                        return true;
                     }
                 }
                 if (buffer.front.isIdentifierChar) {
@@ -112,12 +111,12 @@ struct ZtLexer {
                     return true;
                 }
                 error(currentLocation, "Unknown or illegal character '%s'.", buffer.front);
-                lastToken = ZtToken(ZtToken.Type.ud_unknown, currentLocation,
-                        cast(string)[buffer.takeFront]);
+                lastToken = ZtToken(ZtToken.Type.unknown, currentLocation,
+                        cast(string)[buffer.stealFront]);
                 return true;
             }
             if (!hasEof) {
-                lastToken = ZtToken(ZtToken.type.ud_eof, currentLocation, ZtToken.type.ud_eof);
+                lastToken = ZtToken(ZtToken.type.eof, currentLocation, ZtToken.type.eof);
                 return hasEof = true;
             } else
                 return false;

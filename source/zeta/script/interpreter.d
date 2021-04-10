@@ -10,11 +10,11 @@ import std.conv : to;
 import std.algorithm;
 import std.array;
 import std.container.slist;
-import zeta.parse.ast;
-import zeta.script.context;
-import zeta.script.interpreter;
+
+import zeta.utils;
+import zeta.parse;
 import zeta.typesystem;
-import zeta.utils.dispatch;
+import zeta.script;
 
 final class ZtScriptInterpreter {
     mixin(MultiDispatch!`evaluate`);
@@ -124,12 +124,12 @@ final class ZtScriptInterpreter {
         context.define(node.name, functionType.make(node, context));
     }
 
-    void execute(ZtAstClass node) {
-        // auto classType = new ZtClassType(node, context);
-        // classType.register(this);
-        // types ~= classType;
-        // context.define(node.name, metaType.make(classType));
-    }
+    // void execute(ZtAstClass node) {
+    //     auto classType = new ZtClassType(node, context);
+    //     classType.register(this);
+    //     types ~= classType;
+    //     context.define(node.name, metaType.make(classType));
+    // }
 
     void execute(ZtAstIf node) {
         stack.insertFront(new ZtLexicalContext(context));
@@ -148,7 +148,7 @@ final class ZtScriptInterpreter {
         for (size_t i = 0; i < node.members.length; i++) {
             if (node.members[i].isElseCase)
                 elseCaseId = i;
-            auto matches = node.members[i].conditions.any!((exp) => evaluate(exp).op_equal(cond));
+            auto matches = node.members[i].matches.any!((exp) => evaluate(exp).op_equal(cond));
             if (matches || isFallthrough) {
                 execute(node.members[i].members);
                 if (isReturning)
@@ -229,7 +229,7 @@ final class ZtScriptInterpreter {
 
     void execute(ZtAstFor node) {
         stack.insertFront(new ZtLexicalContext(context));
-        execute(node.definition);
+        execute(node.initializer);
         for (; evaluate(node.condition).op_eval(); evaluate(node.step)) {
             stack.insertFront(new ZtLexicalContext(context));
             execute(node.members);
@@ -285,11 +285,11 @@ final class ZtScriptInterpreter {
     }
 
     ZtValue evaluate(ZtAstDispatch node) {
-        return evaluate(node.lhs).op_dispatch(node.name);
+        return evaluate(node.expression).op_dispatch(node.name);
     }
 
     ZtValue evaluate(ZtAstSubscript node) {
-        return evaluate(node.lhs).op_index(evaluate(node.arguments));
+        return evaluate(node.expression).op_index(evaluate(node.arguments));
     }
 
     ZtValue evaluate(ZtAstBinary node) {
@@ -332,7 +332,7 @@ final class ZtScriptInterpreter {
     }
 
     ZtValue evaluate(ZtAstUnary node) {
-        auto rhs = evaluate(node.rhs);
+        auto rhs = evaluate(node.expression);
         if (node.operator == ZtAstUnary.Operator.not) return booleanType.make(!rhs.op_eval());
         if (node.isPostOp) {
             auto result = rhs.deRefed();
@@ -342,7 +342,7 @@ final class ZtScriptInterpreter {
             return rhs.op_unary(node.operator);
     }
 
-    ZtValue evaluate(ZtAstTrinaryOperator node) {
+    ZtValue evaluate(ZtAstTrinary node) {
         return evaluate(node.condition).op_eval ? evaluate(node.lhs) : evaluate(node.rhs);
     }
 
@@ -358,20 +358,20 @@ final class ZtScriptInterpreter {
         //TODO: implement proper assignment behavior instead of relying on transparent references to do the heavy lifting.
         auto lhs = evaluate(node.lhs);
         assert(lhs.isRef, "Error: Cannot assign RValue");
-        if (node.isPlainAssign) lhs = rhs;
+        if (node.operator == ZtAstBinary.Operator.no_op) lhs = rhs;
         else lhs.op_assignBinary(node.operator, rhs);
         return rhs.deRefed();
         // }
     }
 
     ZtValue evaluate(ZtAstCall node) {
-        auto fun = evaluate(node.lhs);
+        auto fun = evaluate(node.expression);
         auto args = node.arguments.map!((n) => evaluate(n))().array;
         return fun.op_call(args);
     }
 
     ZtValue evaluate(ZtAstApply node) {
-        auto lhs = evaluate(node.lhs);
+        auto lhs = evaluate(node.expression);
         if (lhs.type != nullType)
             return lhs.op_dispatch(node.name);
         else
@@ -381,9 +381,9 @@ final class ZtScriptInterpreter {
     ZtValue evaluate(ZtAstCast node) {
         auto result = evaluate(node.type);
         if (result.type == metaType)
-            return evaluate(node.rhs).op_cast(result.m_type);
+            return evaluate(node.expression).op_cast(result.m_type);
         else
-            return evaluate(node.rhs).op_cast(result.type);
+            return evaluate(node.expression).op_cast(result.type);
     }
 
     ZtValue evaluate(ZtAstIs node) {
@@ -399,7 +399,7 @@ final class ZtScriptInterpreter {
     }
 
     ZtValue evaluate(ZtAstArray node) {
-        return arrayType.make(evaluate(node.expressions));
+        return arrayType.make(evaluate(node.arguments));
     }
 
     ZtValue evaluate(ZtAstString node) {

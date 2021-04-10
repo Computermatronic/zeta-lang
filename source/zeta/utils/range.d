@@ -7,8 +7,9 @@
 module zeta.utils.range;
 
 import std.range;
+import std.algorithm;
 
-auto takeFront(Range)(ref Range range) {
+auto stealFront(Range)(ref Range range) {
     auto result = range.front;
     range.popFront();
     return result;

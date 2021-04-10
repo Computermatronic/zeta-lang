@@ -4,7 +4,14 @@
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.utils.dispatch;
+module zeta.utils.meta;
+
+template Choose(bool condition, alias lhs, alias rhs) {
+    static if (condition)
+        alias Choose = lhs;
+    else
+        alias Choose = rhs;
+}
 
 /* 
  * This was loosely inspired from asrd.mvd by Adam D. Ruppe, and utilizes some of the same ideas;
@@ -19,7 +26,6 @@ module zeta.utils.dispatch;
  */
 enum MultiDispatch(string name) = `mixin MultiDispatchImpl!"` ~ name ~ `" `
     ~ name ~ `impl; alias ` ~ name ~ ` = ` ~ name ~ `impl.payload;`;
-
 mixin template MultiDispatchImpl(string name) {
     import std.traits, std.meta, std.variant, std.typecons;
 
@@ -64,26 +70,9 @@ mixin template MultiDispatchImpl(string name) {
                     bestMatch = () => overload(params);
             }
         }
-        assert(maxScore != 0,
-                "Cannot find valid overload for " ~ name ~ describeArguments(args));
-        assert(!isAmbiguous, "Multiple overloads match" ~ name ~ describeArguments(args));
+        assert(maxScore != 0, "Cannot find valid overload for " ~ name ~ Args.stringof);
+        assert(!isAmbiguous, "Multiple overloads match" ~ name ~ Args.stringof);
         return bestMatch();
-    }
-
-    string describeArguments(Args...)(Args args) {
-        import std.array : Appender;
-
-        Appender!string result;
-        result.put("(");
-        foreach (i, arg; args) {
-            static if (!is(typeof(arg) == string)) result.put(arg.toString);
-            else result.put(arg);
-            if (i + 1 == Args.length)
-                result.put(")");
-            else
-                result.put(", ");
-        }
-        return result.data;
     }
 
     template isCompatableWith(alias tuple1, alias tuple2) {

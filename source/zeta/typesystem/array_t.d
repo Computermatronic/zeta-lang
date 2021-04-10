@@ -8,10 +8,9 @@ module zeta.typesystem.array_t;
 
 import std.algorithm;
 import std.array;
-import zeta.typesystem.type;
-import zeta.script.interpreter;
-import zeta.utils.error;
-import zeta.script.exception;
+
+import zeta.utils;
+import zeta.script;
 import zeta.typesystem;
 
 class ZtArrayType : ZtType {

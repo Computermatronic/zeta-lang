@@ -6,15 +6,14 @@
  */
 module zeta.typesystem;
 
-public {
-    import zeta.typesystem.type;
-    import zeta.typesystem.null_t;
-    import zeta.typesystem.bool_t;
-    import zeta.typesystem.int_t;
-    import zeta.typesystem.float_t;
-    import zeta.typesystem.string_t;
-    import zeta.typesystem.array_t;
-    import zeta.typesystem.function_t;
-    import zeta.typesystem.native_t;
-    import zeta.typesystem.meta_t;
-}
+public:
+import zeta.typesystem.type;
+import zeta.typesystem.null_t;
+import zeta.typesystem.bool_t;
+import zeta.typesystem.int_t;
+import zeta.typesystem.float_t;
+import zeta.typesystem.string_t;
+import zeta.typesystem.array_t;
+import zeta.typesystem.function_t;
+import zeta.typesystem.native_t;
+import zeta.typesystem.meta_t;
