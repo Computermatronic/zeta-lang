@@ -7,10 +7,9 @@
 module zeta.typesystem.float_t;
 
 import std.conv;
-import zeta.typesystem.type;
-import zeta.script.interpreter;
-import zeta.utils.error;
-import zeta.script.exception;
+
+import zeta.utils;
+import zeta.script;
 import zeta.typesystem;
 
 class ZtFloatType : ZtType {
@@ -78,64 +77,78 @@ class ZtFloatType : ZtType {
             return 0;
     }
 
-    override ZtValue op_add(ZtValue* self, ZtValue rhs) {
+    override ZtValue op_binary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
+        auto do_op(T)(ZtAstBinary.Operator op, T val) {
+            with (ZtAstBinary.Operator) switch (op) {
+            case add:
+                return self.m_float + val;
+            case subtract:
+                return self.m_float - val;
+            case multiply:
+                return self.m_float * val;
+            case divide:
+                return self.m_float / val;
+            case modulo:
+                return self.m_float % val;
+            default:
+                super.op_binary(self, op, rhs);
+                return T.init;
+            }
+        }
+
         if (rhs.type == this)
-            return make(self.m_float + rhs.m_float);
+            return make(do_op(op, rhs.m_float));
         else if (rhs.type == interpreter.integerType)
-            return make(self.m_float + rhs.m_int);
+            return make(do_op(op, rhs.m_int));
         else
-            return super.op_add(self, rhs);
+            return super.op_binary(self, op, rhs);
     }
 
-    override ZtValue op_subtract(ZtValue* self, ZtValue rhs) {
+    override ZtValue op_unary(ZtValue* self, ZtAstUnary.Operator op) {
+        with (ZtAstUnary.Operator) switch (op) {
+            case increment:
+                self.m_float++;
+                return self.deRefed();
+            case decrement:
+                self.m_float--;
+                return self.deRefed();
+            case positive:
+                return self.deRefed();
+            case negative:
+                return make(-self.m_float);
+            default: 
+                return super.op_unary(self, op);
+        }
+    }
+    
+    override void op_assignBinary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
+        void do_op(T)(ZtAstBinary.Operator op, T val) {
+            with (ZtAstBinary.Operator) switch (op) {
+            case add:
+                self.m_float += val;
+                return;
+            case subtract:
+                self.m_float -= val;
+                return;
+            case multiply:
+                self.m_float *= val;
+                return;
+            case divide:
+                self.m_float /= val;
+                return;
+            case modulo:
+                self.m_float %= val;
+                return;
+            default:
+                super.op_assignBinary(self, op, rhs);
+            }
+        }
+
         if (rhs.type == this)
-            return make(self.m_float - rhs.m_float);
+            do_op(op, rhs.m_float);
         else if (rhs.type == interpreter.integerType)
-            return make(self.m_float - rhs.m_int);
+            do_op(op, rhs.m_int);
         else
-            return super.op_subtract(self, rhs);
-    }
-
-    override ZtValue op_multiply(ZtValue* self, ZtValue rhs) {
-        if (rhs.type == this)
-            return make(self.m_float * rhs.m_float);
-        else if (rhs.type == interpreter.integerType)
-            return make(self.m_float * rhs.m_int);
-        else
-            return super.op_multiply(self, rhs);
-    }
-
-    override ZtValue op_divide(ZtValue* self, ZtValue rhs) {
-        if (rhs.type == this)
-            return make(self.m_float / rhs.m_float);
-        else if (rhs.type == interpreter.integerType)
-            return make(self.m_float / rhs.m_int);
-        else
-            return super.op_divide(self, rhs);
-    }
-
-    override ZtValue op_modulo(ZtValue* self, ZtValue rhs) {
-        if (rhs.type == this)
-            return make(self.m_float % rhs.m_float);
-        else if (rhs.type == interpreter.integerType)
-            return make(self.m_float % rhs.m_int);
-        else
-            return super.op_modulo(self, rhs);
-    }
-
-    override ZtValue op_positive(ZtValue* self) {
-        return make(self.m_float < 0 ? -self.m_float : self.m_float);
-    }
-
-    override ZtValue op_negative(ZtValue* self) {
-        return make(-self.m_float);
-    }
-
-    override void op_increment(ZtValue* self) {
-        self.m_float++;
-    }
-
-    override void op_decrement(ZtValue* self) {
-        self.m_float--;
+            super.op_assignBinary(self, op, rhs);
     }
 }

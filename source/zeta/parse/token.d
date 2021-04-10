@@ -6,53 +6,53 @@
  */
 module zeta.parse.token;
 
-import std.algorithm : sort, reverse;
-import std.range : retro;
-import std.array : array;
-import std.format : format;
-import std.variant : Algebraic;
-import std.traits : EnumMembers;
+import std.variant;
+import std.format;
+import std.traits;
+import std.algorithm;
 
 struct ZtToken {
+    alias Literal = Algebraic!(ulong, long, double, dchar, string);
     enum Type : string {
-        tk_plus = "+",
-        tk_minus = "-",
-        tk_multiply = "*",
-        tk_divide = "/",
-        tk_modulo = "%",
-        tk_tilde = "~",
-        tk_bitAnd = "&",
-        tk_bitOr = "|",
-        tk_bitXor = "^",
-        tk_shiftLeft = "<<",
-        tk_shiftRight = ">>",
-        tk_logicalAnd = "&&",
-        tk_logicalOr = "||",
-        tk_logicalXor = "^^",
+        op_plus = "+",
+        op_minus = "-",
+        op_asterisk = "*",
+        op_slash = "/",
+        op_percent = "%",
+        op_tilde = "~",
+        op_ampersand = "&",
+        op_poll = "|",
+        op_circumflex = "^",
+        op_shiftLeft = "<<",
+        op_shiftRight = ">>",
 
-        tk_assign = "=",
-        tk_assignAdd = "+=",
-        tk_assignSubtract = "-=",
-        tk_assignMultiply = "*=",
-        tk_assignDivide = "/=",
-        tk_assignModulo = "%=",
-        tk_assignConcat = "~=",
-        tk_assignAnd = "&=",
-        tk_assignOr = "|=",
-        tk_assignXor = "^=",
+        op_increment = "++",
+        op_decrement = "--",
+        op_not = "!",
 
-        tk_equal = "==",
-        tk_notEqual = "!=",
-        tk_greaterThan = ">",
-        tk_lessThan = "<",
-        tk_greaterThanEqual = ">=",
-        tk_lessThanEqual = "<=",
+        op_assign = "=",
+        op_assignAdd = "+=",
+        op_assignSubtract = "-=",
+        op_assignMultiply = "*=",
+        op_assignDivide = "/=",
+        op_assignModulo = "%=",
+        op_assignConcat = "~=",
+        op_assignBitAnd = "&=",
+        op_assignBitOr = "|=",
+        op_assignBitXor = "^=",
+        op_assignShiftLeft = "=<<",
+        op_assignShiftRight = "=>>",
 
-        tk_increment = "++",
-        tk_decrement = "--",
-        tk_not = "!",
+        op_and = "&&",
+        op_or = "||",
+        op_xor = "^^",
 
-        tk_question = "?",
+        op_equal = "==",
+        op_notEqual = "!=",
+        op_greaterThan = ">",
+        op_lessThan = "<",
+        op_greaterThanEqual = ">=",
+        op_lessThanEqual = "<=",
 
         tk_dot = ".",
         tk_apply = ".?",
@@ -60,6 +60,7 @@ struct ZtToken {
         tk_colon = ":",
         tk_semicolon = ";",
         tk_variadic = "...",
+        tk_slice = "..",
 
         tk_leftParen = "(",
         tk_rightParen = ")",
@@ -98,17 +99,16 @@ struct ZtToken {
         kw_new = "new",
         kw_delete = "delete",
 
-        ud_eof = "<End of File>",
         ud_identifier = "<Identifier>",
         ud_attribute = "<Attribute>",
         ud_string = "<String Literal>",
         ud_char = "<Charecter Literal>",
         ud_integer = "<Integer Literal>",
         ud_float = "<Floating Point Literal>",
-        ud_unknown = "<Unknown>"
+        eof = "<End of File>",
+        unknown = "<Unknown Token>",
+        no_op = ""
     }
-
-    alias Literal = Algebraic!(ulong, long, double, dchar, string);
 
     Type type;
     ZtSrcLocation location;
@@ -133,5 +133,4 @@ struct ZtSrcLocation {
     }
 }
 
-//The last 8 members of ZtToken.Type are user defined, so we don't want to include them in token names.
-enum tokenNames = sort(cast(string[])[EnumMembers!(ZtToken.Type)][0 .. $ - 8]).reverse;
+enum tokenNames = sort(cast(string[])[EnumMembers!(ZtToken.Type)][0 .. $ - 9]).reverse;

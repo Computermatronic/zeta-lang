@@ -8,13 +8,10 @@ module zeta.typesystem.native_t;
 
 import std.conv;
 import std.functional : toDelegate;
-import zeta.typesystem.type;
-import zeta.script.interpreter;
-import zeta.utils.error;
-import zeta.typesystem;
 
-import zeta.parse.ast;
-import zeta.script.context;
+import zeta.utils;
+import zeta.script;
+import zeta.typesystem;
 
 class ZtNativeType : ZtType {
     ZtScriptInterpreter interpreter;

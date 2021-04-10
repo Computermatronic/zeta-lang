@@ -6,10 +6,8 @@
  */
 module zeta.typesystem.meta_t;
 
-import zeta.typesystem.type;
-import zeta.script.interpreter;
-import zeta.utils.error;
-import zeta.script.exception;
+import zeta.utils;
+import zeta.script;
 import zeta.typesystem;
 
 class ZtMetaType : ZtType {

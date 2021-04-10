@@ -7,13 +7,11 @@
 module zeta.typesystem.function_t;
 
 import std.conv;
-import zeta.typesystem.type;
-import zeta.script.interpreter;
-import zeta.utils.error;
-import zeta.typesystem;
 
-import zeta.parse.ast;
-import zeta.script.context;
+import zeta.utils;
+import zeta.parse;
+import zeta.script;
+import zeta.typesystem;
 
 class ZtFunctionType : ZtType {
     ZtScriptInterpreter interpreter;

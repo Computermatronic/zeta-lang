@@ -6,8 +6,8 @@
  */
 module zeta.script.context;
 
-import zeta.typesystem.type;
-import zeta.script.exception;
+import zeta.typesystem;
+import zeta.script;
 
 class ZtLexicalContext {
     ZtLexicalContext outer;
