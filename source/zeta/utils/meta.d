@@ -90,3 +90,8 @@ mixin template MultiDispatchImpl(string name) {
             enum isCompatableWith = true;
     }
 }
+
+union Union(Types...) {
+    alias members this;
+    Types members;
+}
