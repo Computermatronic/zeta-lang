@@ -344,8 +344,7 @@ private:
 
     //Category based parsing functions.
     ZtAstStatement[] parseStatement() {
-    nextStatement:
-        switch (buffer.front.type) with (ZtToken.Type) {
+        for(;;) switch (buffer.front.type) with (ZtToken.Type) {
         case kw_enum, kw_alias, kw_def, kw_function, kw_template, kw_struct, kw_class,
                 kw_interface, kw_import:
                 return cast(ZtAstStatement[]) this.parseDeclaration();
@@ -373,15 +372,14 @@ private:
             return [this.parseContinue()];
         case ud_attribute:
             this.parseAttributes();
-            goto nextStatement;
+            continue;
         default:
             return [this.parseExpressionStatement()];
         }
     }
 
     ZtAstDeclaration[] parseDeclaration() {
-    nextDeclaration:
-        switch (buffer.front.type) with (ZtToken.Type) {
+        for(;;) switch (buffer.front.type) with (ZtToken.Type) {
         // case kw_enum:
         //     return [this.parseEnum()];
         // case kw_alias:
@@ -402,7 +400,7 @@ private:
             return [this.parseImport()];
         case ud_attribute:
             this.parseAttributes();
-            goto nextDeclaration;
+            continue;
         default:
             error(buffer.front.location, "Unrecognized declaration %s", buffer.front.lexeme);
             this.takeFront();
@@ -533,31 +531,30 @@ private:
             return null;
         }
 
-    nextExpression:
-        switch (buffer.front.type) with (ZtToken.Type) {
+        loop: for(;;) switch (buffer.front.type) with (ZtToken.Type) {
         case ZtToken.Type.tk_dot:
             if (Precedence.dispatch > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstDispatch(ZtToken.Type.tk_dot);
             node.expression = expression;
             node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
             expression = node;
-            goto nextExpression;
+            continue;
 
         case tk_leftBracket:
             if (Precedence.subscript > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstSubscript(ZtToken.Type.tk_leftBracket);
             node.expression = expression;
             if (!this.testForToken(ZtToken.Type.tk_rightBracket))
                 node.arguments = this.parseList!parseExpression();
             this.expectToken(ZtToken.Type.tk_rightBracket);
             expression = node;
-            goto nextExpression;
+            continue;
 
         // case tk_colon:
         //     if (Precedence.templateInstance > precedence)
-        //         break;
+        //         break loop;
         //     auto node = this.makeNode!ZtAstTemplateInstance(ZtToken.Type.tk_colon);
         //     node.expression = expression;
         //     if (this.advanceForToken(ZtToken.Type.tk_leftParen)) {
@@ -568,7 +565,7 @@ private:
         //         node.arguments ~= this.parseExpression();
         //     }
         //     expression = node;
-        //     goto nextExpression;
+        //     continue;
 
         case op_asterisk:
             // auto next = buffer.save.take(2).array[$ - 1].type;
@@ -580,123 +577,123 @@ private:
             //     auto node = this.makeNode!ZtAstPointerType(ZtToken.Type.op_asterisk);
             //     node.baseType = cast(ZtAstReference) expression;
             //     expression = node;
-            //     goto nextExpression;
+            //     continue;
             // } else
                 goto case;
 
         case op_slash, op_percent:
             if (Precedence.multiplacativeOperator > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstBinary();
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.multiplacativeOperator);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_plus, op_minus:
             if (Precedence.additiveOperator > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstBinary();
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.additiveOperator);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_greaterThan, op_lessThan, op_greaterThanEqual, op_lessThanEqual:
             if (Precedence.comparativeOperator > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstLogical();
             node.lhs = expression;
             node.operator = cast(ZtAstLogical.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.comparativeOperator);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_equal, op_notEqual:
             if (Precedence.equityOperator > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstLogical();
             node.lhs = expression;
             node.operator = cast(ZtAstLogical.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.equityOperator);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_shiftLeft, op_shiftRight:
             if (Precedence.bitShiftOperator > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstBinary();
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.bitShiftOperator);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_ampersand:
             if (Precedence.bitAnd > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstLogical();
             node.lhs = expression;
             node.operator = cast(ZtAstLogical.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.bitAnd);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_poll:
             if (Precedence.bitOr > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstLogical();
             node.lhs = expression;
             node.operator = cast(ZtAstLogical.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.bitOr);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_and:
             if (Precedence.and > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstBinary();
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.and);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_or:
             if (Precedence.or > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstBinary();
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.or);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_xor:
             if (Precedence.xor > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstBinary();
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.xor);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_tilde, tk_slice:
             if (Precedence.concat > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstBinary();
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.concat);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_increment, op_decrement:
             if (Precedence.unaryPostIncrementOperator > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstUnary();
             node.operator = cast(ZtAstUnary.Operator) this.takeFront().type;
             node.isPostOp = true;
@@ -706,55 +703,56 @@ private:
 
         case op_assign:
             if (Precedence.assignmentOperator > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstAssign();
             node.lhs = expression;
             node.operator = ZtAstBinary.Operator.no_op;
             this.takeFront();
             node.rhs = this.parseExpression(Precedence.assignmentOperator);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case op_assignAdd, op_assignSubtract, op_assignMultiply,
-                op_assignDivide, op_assignModulo, op_assignConcat, op_assignBitAnd,
-                op_assignBitOr, op_assignBitXor:
-                if (Precedence.assignmentOperator > precedence) break;
+             op_assignDivide, op_assignModulo, op_assignConcat, op_assignBitAnd,
+             op_assignBitOr, op_assignBitXor:
+            if (Precedence.assignmentOperator > precedence) 
+                break loop;
             auto node = this.makeNode!ZtAstAssign();
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator)(this.takeFront().type[0 .. $ - 1]);
             node.rhs = this.parseExpression(Precedence.assignmentOperator);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case tk_leftParen:
             if (Precedence.call > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstCall(ZtToken.Type.tk_leftParen);
             node.expression = expression;
             if (!this.testForToken(ZtToken.Type.tk_rightParen))
                 node.arguments = this.parseList!parseExpression();
             this.expectToken(ZtToken.Type.tk_rightParen);
             expression = node;
-            goto nextExpression;
+            continue;
 
         case tk_apply:
             if (Precedence.apply > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstApply(ZtToken.Type.tk_apply);
             node.expression = expression;
             node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-            goto nextExpression;
+            continue;
 
         case kw_is:
             if (Precedence.is_ > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstIs(ZtToken.Type.kw_is);
             node.lhs = expression;
             node.rhs = this.parseExpression(Precedence.is_);
-            goto nextExpression;
+            continue;
 
         default:
-            break;
+            break loop;
         }
         return expression;
     }
@@ -797,31 +795,30 @@ private:
             return null;
         }
 
-    nextReference:
-        switch (buffer.front.type) with (ZtToken.Type) {
+        loop: for(;;) switch (buffer.front.type) with (ZtToken.Type) {
         case ZtToken.Type.tk_dot:
             if (Precedence.dispatch > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstDispatch(ZtToken.Type.tk_dot);
             node.expression = reference;
             node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
             reference = node;
-            goto nextReference;
+            continue;
 
         case tk_leftBracket:
             if (Precedence.subscript > precedence)
-                break;
+                break loop;
             auto node = this.makeNode!ZtAstSubscript(ZtToken.Type.tk_leftBracket);
             node.expression = reference;
             if (!this.testForToken(ZtToken.Type.tk_rightBracket))
                 node.arguments = cast(ZtAstExpression[]) this.parseList!parseReference();
             this.expectToken(ZtToken.Type.tk_rightBracket);
             reference = node;
-            goto nextReference;
+            continue;
 
         // case tk_colon:
         //     if (Precedence.templateInstance > precedence)
-        //         break;
+        //         break loop;
         //     auto node = this.makeNode!ZtAstTemplateInstance(ZtToken.Type.tk_colon);
         //     node.expression = reference;
         //     if (this.advanceForToken(ZtToken.Type.tk_leftParen)) {
@@ -831,16 +828,16 @@ private:
         //         node.arguments ~= this.parseReference();
         //     }
         //     reference = node;
-        //     goto nextReference;
+        //     continue;
 
         // case op_asterisk:
         //     auto node = this.makeNode!ZtAstPointerType(ZtToken.Type.op_asterisk);
         //     node.baseType = cast(ZtAstReference) reference;
         //     reference = node;
-        //     goto nextReference;
+        //     continue;
 
         default:
-            break;
+            break loop;
         }
         return reference;
     }
