@@ -44,22 +44,12 @@ struct ZtParser {
             node.name = node.location.file.baseName().stripExtension();
         }
         while (!this.isEof) {
-            node.members ~= this.parseDeclaration();
+            node.members ~= this.parseStatement();
         }
         return node;
     }
 
 private:
-    // ZtAstAlias parseAlias() {
-    //     auto node = this.makeNode!ZtAstAlias(ZtToken.Type.kw_alias);
-    //     if (this.advanceForToken(ZtToken.Type.tk_colon))
-    //         node.type = this.parseReference();
-    //     node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-    //     this.expectToken(ZtToken.Type.op_assign);
-    //     node.initializer = this.parseExpression();
-    //     this.expectToken(ZtToken.Type.tk_semicolon);
-    //     return node;
-    // }
 
     ZtAstDef[] parseDef() {
         ZtAstDef[] defs = [this.parseDefParameter()];
@@ -96,31 +86,12 @@ private:
         if (this.advanceForToken(ZtToken.Type.tk_colon))
             node.type = this.parseReference();
         node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-        auto paramaters = this.parseParamaters!parseDefParameter();
-        node.paramaters = paramaters[0];
-        node.isVariadic = paramaters[1];
-        if (this.advanceForToken(ZtToken.Type.tk_semicolon))
-            node.isLinkage = true;
-        else
-            node.members = this.parseBlock!parseStatement();
+        auto parameters = this.parseParameters!parseDefParameter();
+        node.parameters = parameters[0];
+        node.isVariadic = parameters[1];
+        node.members = this.parseBlock!parseStatement();
         return node;
     }
-
-    // ZtAstTemplate parseTemplate() {
-    //     auto node = this.makeNode!ZtAstTemplate(ZtToken.Type.kw_template);
-    //     if (!this.testForToken(ZtToken.Type.ud_identifier))
-    //         node.isAnonymous = true;
-    //     else
-    //         node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-    //     auto paramaters = this.parseParamaters!parseTemplateParamater();
-    //     node.paramaters = paramaters[0];
-    //     node.isVariadic = paramaters[1];
-    //     if (node.isAnonymous)
-    //         node.members ~= this.parseDeclaration();
-    //     else
-    //         node.members ~= this.parseBlock!parseDeclaration();
-    //     return node;
-    // }
 
     ZtAstDef parseDefParameter() {
         ZtAstReference type;
@@ -130,76 +101,54 @@ private:
         return parseDefBody(type);
     }
 
-    // ZtAstTypeParamater parseTypeParamater() {
-    //     auto node = this.makeNode!ZtAstTypeParamater();
-    //     node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-    //     if (this.advanceForToken(ZtToken.Type.tk_colon))
-    //         node.type = this.parseReference();
-    //     if (this.advanceForToken(ZtToken.Type.op_assign))
-    //         node.initializer = this.parseReference();
-    //     return node;
-    // }
+    ZtAstEnum parseEnum() {
+        auto node = this.makeNode!ZtAstEnum(ZtToken.Type.kw_enum);
+        if (this.advanceForToken(ZtToken.Type.tk_colon))
+            node.type = this.parseReference();
+        node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
+        this.expectToken(ZtToken.Type.tk_leftBrace);
+        node.members = this.parseList!parseEnumMember();
+        this.expectToken(ZtToken.Type.tk_rightBrace);
+        return node;
+    }
 
-    // ZtAstAliasParamater parseAliasParamater() {
-    //     auto node = this.makeNode!ZtAstAliasParamater(ZtToken.Type.kw_alias);
-    //     if (this.advanceForToken(ZtToken.Type.tk_colon))
-    //         node.type = this.parseReference();
-    //     node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-    //     if (this.advanceForToken(ZtToken.Type.op_assign))
-    //         node.initializer = this.parseExpression();
-    //     return node;
-    // }
+    ZtAstEnumMember parseEnumMember() {
+        auto node = this.makeNode!ZtAstEnumMember();
+        node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
+        if (this.advanceForToken(ZtToken.Type.op_assign))
+            node.initializer = this.parseExpression();
+        return node;
+    }
 
-    // ZtAstEnum parseEnum() {
-    //     auto node = this.makeNode!ZtAstEnum(ZtToken.Type.kw_enum);
-    //     if (this.advanceForToken(ZtToken.Type.tk_colon))
-    //         node.type = this.parseReference();
-    //     node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-    //     this.expectToken(ZtToken.Type.tk_leftBrace);
-    //     node.members = this.parseList!parseEnumMember();
-    //     this.expectToken(ZtToken.Type.tk_rightBrace);
-    //     return node;
-    // }
+    ZtAstStruct parseStruct() {
+        auto node = this.makeNode!ZtAstStruct(ZtToken.Type.kw_struct);
+        node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
+        if (this.advanceForToken(ZtToken.Type.tk_colon))
+            node.baseTypes = this.parseList!parseReference();
+        else
+            node.members = this.parseBlock!parseStatement();
+        return node;
+    }
 
-    // ZtAstEnumMember parseEnumMember() {
-    //     auto node = this.makeNode!ZtAstEnumMember();
-    //     node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-    //     if (this.advanceForToken(ZtToken.Type.op_assign))
-    //         node.initializer = this.parseExpression();
-    //     return node;
-    // }
+    ZtAstClass parseClass() {
+        auto node = this.makeNode!ZtAstClass(ZtToken.Type.kw_class);
+        node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
+        if (this.advanceForToken(ZtToken.Type.tk_colon))
+            node.baseTypes = this.parseList!parseReference();
+        else
+            node.members = this.parseBlock!parseStatement();
+        return node;
+    }
 
-    // ZtAstStruct parseStruct() {
-    //     auto node = this.makeNode!ZtAstStruct(ZtToken.Type.kw_struct);
-    //     node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-    //     if (this.advanceForToken(ZtToken.Type.tk_colon))
-    //         node.baseTypes = this.parseList!parseReference();
-    //     if (this.advanceForToken(ZtToken.Type.tk_semicolon))
-    //         node.isLinkage = true;
-    //     else
-    //         node.members = this.parseBlock!parseDeclaration();
-    //     return node;
-    // }
-
-    // ZtAstClass parseClass() {
-    //     auto node = this.makeNode!ZtAstClass(ZtToken.Type.kw_class);
-    //     node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-    //     if (this.advanceForToken(ZtToken.Type.tk_colon))
-    //         node.baseTypes = this.parseList!parseReference();
-    //     else
-    //         node.members = this.parseBlock!parseDeclaration();
-    //     return node;
-    // }
-
-    // ZtAstInterface parseInterface() {
-    //     auto node = this.makeNode!ZtAstInterface(ZtToken.Type.kw_interface);
-    //     node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
-    //     if (this.advanceForToken(ZtToken.Type.tk_colon))
-    //         node.baseTypes = this.parseList!parseReference();
-    //     else
-    //         node.members = this.parseBlock!parseDeclaration();
-    //     return node;
-    // }
+    ZtAstInterface parseInterface() {
+        auto node = this.makeNode!ZtAstInterface(ZtToken.Type.kw_interface);
+        node.name = this.expectToken(ZtToken.Type.ud_identifier).lexeme;
+        if (this.advanceForToken(ZtToken.Type.tk_colon))
+            node.baseTypes = this.parseList!parseReference();
+        else
+            node.members = this.parseBlock!parseStatement();
+        return node;
+    }
 
     ZtAstIf parseIf() {
         auto node = this.makeNode!ZtAstIf(ZtToken.Type.kw_if);
@@ -345,9 +294,20 @@ private:
     //Category based parsing functions.
     ZtAstStatement[] parseStatement() {
         for(;;) switch (buffer.front.type) with (ZtToken.Type) {
-        case kw_enum, kw_alias, kw_def, kw_function, kw_template, kw_struct, kw_class,
-                kw_interface, kw_import:
-                return cast(ZtAstStatement[]) this.parseDeclaration();
+        case kw_def:
+            return cast(ZtAstStatement[])this.parseDef();
+        case kw_function:
+            return [this.parseFunction()];
+        case kw_enum:
+            return [this.parseEnum()];
+        case kw_struct:
+            return [this.parseStruct()];
+        case kw_class:
+            return [this.parseClass()];
+        case kw_interface:
+            return [this.parseInterface()];
+        case kw_import:
+            return [this.parseImport()];
         case kw_if:
             return [this.parseIf()];
         case kw_switch:
@@ -378,36 +338,6 @@ private:
         }
     }
 
-    ZtAstDeclaration[] parseDeclaration() {
-        for(;;) switch (buffer.front.type) with (ZtToken.Type) {
-        // case kw_enum:
-        //     return [this.parseEnum()];
-        // case kw_alias:
-        //     return [this.parseAlias()];
-        case kw_def:
-            return cast(ZtAstDeclaration[]) this.parseDef();
-        case kw_function:
-            return [this.parseFunction()];
-        // case kw_template:
-        //     return [this.parseTemplate()];
-        // case kw_struct:
-        //     return [this.parseStruct()];
-        // case kw_class:
-        //     return [this.parseClass()];
-        // case kw_interface:
-        //     return [this.parseInterface()];
-        case kw_import:
-            return [this.parseImport()];
-        case ud_attribute:
-            this.parseAttributes();
-            continue;
-        default:
-            error(buffer.front.location, "Unrecognized declaration %s", buffer.front.lexeme);
-            this.takeFront();
-            return null;
-        }
-    }
-
     ZtAstExpression parseExpression(int precedence = int.max) {
         ZtAstExpression expression;
 
@@ -426,10 +356,9 @@ private:
             if (arguments.length == 1) {
                 expression = arguments[0];
             } else {
-                error(arguments[0].location, "Tuples not supported!");
-                // auto node = this.makeNode!ZtAstTuple();
-                // node.arguments = arguments;
-                // expression = node;
+                auto node = this.makeNode!ZtAstTuple();
+                node.arguments = arguments;
+                expression = node;
             }
             break;
 
@@ -552,42 +481,13 @@ private:
             expression = node;
             continue;
 
-        // case tk_colon:
-        //     if (Precedence.templateInstance > precedence)
-        //         break loop;
-        //     auto node = this.makeNode!ZtAstTemplateInstance(ZtToken.Type.tk_colon);
-        //     node.expression = expression;
-        //     if (this.advanceForToken(ZtToken.Type.tk_leftParen)) {
-        //         if (!this.testForToken(ZtToken.Type.tk_rightParen))
-        //             node.arguments = this.parseList!parseExpression();
-        //         this.expectToken(ZtToken.Type.tk_rightParen);
-        //     } else {
-        //         node.arguments ~= this.parseExpression();
-        //     }
-        //     expression = node;
-        //     continue;
-
-        case op_asterisk:
-            // auto next = buffer.save.take(2).array[$ - 1].type;
-            // if (ud_identifier != next && ud_string != next && ud_char != next && ud_integer != next
-            //         && ud_float != next && tk_leftParen != next
-            //         && op_increment != next && op_decrement != next && op_plus != next
-            //         && op_minus != next && op_ampersand != next && op_asterisk != next && op_not != next
-            //         && op_tilde != next && kw_new != next && cast(ZtAstReference) expression !is null) {
-            //     auto node = this.makeNode!ZtAstPointerType(ZtToken.Type.op_asterisk);
-            //     node.baseType = cast(ZtAstReference) expression;
-            //     expression = node;
-            //     continue;
-            // } else
-                goto case;
-
-        case op_slash, op_percent:
-            if (Precedence.multiplacativeOperator > precedence)
+        case op_asterisk, op_slash, op_percent:
+            if (Precedence.multiplicativeOperator > precedence)
                 break loop;
             auto node = this.makeNode!ZtAstBinary();
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
-            node.rhs = this.parseExpression(Precedence.multiplacativeOperator);
+            node.rhs = this.parseExpression(Precedence.multiplicativeOperator);
             expression = node;
             continue;
 
@@ -668,16 +568,6 @@ private:
             node.lhs = expression;
             node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
             node.rhs = this.parseExpression(Precedence.or);
-            expression = node;
-            continue;
-
-        case op_xor:
-            if (Precedence.xor > precedence)
-                break loop;
-            auto node = this.makeNode!ZtAstBinary();
-            node.lhs = expression;
-            node.operator = cast(ZtAstBinary.Operator) this.takeFront().type;
-            node.rhs = this.parseExpression(Precedence.xor);
             expression = node;
             continue;
 
@@ -775,10 +665,9 @@ private:
             if (arguments.length == 1) {
                 reference = arguments[0];
             } else {
-                error(arguments[0].location, "Tuples not supported!");
-                // auto node = this.makeNode!ZtAstTuple();
-                // node.arguments = cast(ZtAstExpression[]) arguments;
-                // reference = node;
+                auto node = this.makeNode!ZtAstTuple();
+                node.arguments = cast(ZtAstExpression[]) arguments;
+                reference = node;
             }
             break;
 
@@ -816,46 +705,11 @@ private:
             reference = node;
             continue;
 
-        // case tk_colon:
-        //     if (Precedence.templateInstance > precedence)
-        //         break loop;
-        //     auto node = this.makeNode!ZtAstTemplateInstance(ZtToken.Type.tk_colon);
-        //     node.expression = reference;
-        //     if (this.advanceForToken(ZtToken.Type.tk_leftParen)) {
-        //         node.arguments = this.parseList!parseExpression();
-        //         this.expectToken(ZtToken.Type.tk_rightParen);
-        //     } else {
-        //         node.arguments ~= this.parseReference();
-        //     }
-        //     reference = node;
-        //     continue;
-
-        // case op_asterisk:
-        //     auto node = this.makeNode!ZtAstPointerType(ZtToken.Type.op_asterisk);
-        //     node.baseType = cast(ZtAstReference) reference;
-        //     reference = node;
-        //     continue;
-
         default:
             break loop;
         }
         return reference;
     }
-
-    // ZtAstDeclaration parseTemplateParamater() {
-    //     switch (buffer.front.type) with (ZtToken.Type) {
-    //     case ZtToken.Type.ud_identifier:
-    //         return this.parseTypeParamater();
-    //     case ZtToken.Type.kw_alias:
-    //         return this.parseAliasParamater();
-    //     case ZtToken.Type.kw_def:
-    //         return this.parseDefParameter();
-    //     default:
-    //         error(buffer.front.location, "Unrecognized declaration %s", buffer.front.lexeme);
-    //         this.takeFront();
-    //         return null;
-    //     }
-    // }
 
     //Syntactic group based parsing functions.
 
@@ -867,10 +721,9 @@ private:
         else
             ReturnType!(func)[] block;
         if (this.advanceForToken(ZtToken.Type.tk_leftBrace)) {
-            do {
+            while (!this.isEof && !this.testForToken(ZtToken.Type.tk_rightBrace)) {
                 block ~= func();
             }
-            while (!this.isEof && !this.testForToken(ZtToken.Type.tk_rightBrace));
             this.expectToken(ZtToken.Type.tk_rightBrace);
         } else {
             block ~= func();
@@ -889,20 +742,20 @@ private:
         return list;
     }
 
-    auto parseParamaters(alias func)() {
+    auto parseParameters(alias func)() {
         import std.traits : ReturnType;
         import std.typecons : tuple;
 
-        ReturnType!(func)[] paramaters;
+        ReturnType!(func)[] parameters;
         bool isVariadic;
         this.expectToken(ZtToken.Type.tk_leftParen);
         if (!this.advanceForToken(ZtToken.Type.tk_rightParen)) {
-            paramaters = this.parseList!func();
+            parameters = this.parseList!func();
             if (this.advanceForToken(ZtToken.Type.tk_variadic))
                 isVariadic = true;
             this.expectToken(ZtToken.Type.tk_rightParen);
         }
-        return tuple(paramaters, isVariadic);
+        return tuple(parameters, isVariadic);
     }
 
     void parseAttributes() {
@@ -971,7 +824,7 @@ enum Precedence {
     unaryNegationOperator,
     unaryIncrementOperator,
     unaryPostIncrementOperator,
-    multiplacativeOperator,
+    multiplicativeOperator,
     additiveOperator,
     comparativeOperator,
     equityOperator,

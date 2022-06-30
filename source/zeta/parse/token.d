@@ -45,7 +45,6 @@ struct ZtToken {
 
         op_and = "&&",
         op_or = "||",
-        op_xor = "^^",
 
         op_equal = "==",
         op_notEqual = "!=",
@@ -102,7 +101,7 @@ struct ZtToken {
         ud_identifier = "<Identifier>",
         ud_attribute = "<Attribute>",
         ud_string = "<String Literal>",
-        ud_char = "<Charecter Literal>",
+        ud_char = "<Character Literal>",
         ud_integer = "<Integer Literal>",
         ud_float = "<Floating Point Literal>",
         eof = "<End of File>",

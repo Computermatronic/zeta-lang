@@ -23,6 +23,8 @@ template Choose(bool condition, alias lhs, alias rhs) {
  * This was really designed to replace the Visitor patten, rather than implement full multiple virtual dispatch.
  * Also, in cases where there are multiple potential return types for a given call, MultiDispatch will automatically place them
  * into an Algebraic of all possible types.
+ * Additionally, MultiDispatch will consider overloads with an underscore (_) appended to their name, to ensure that certain
+ * calls are virtualised.
  */
 enum MultiDispatch(string name) = `mixin MultiDispatchImpl!"` ~ name ~ `" `
     ~ name ~ `impl; alias ` ~ name ~ ` = ` ~ name ~ `impl.payload;`;
@@ -30,21 +32,26 @@ mixin template MultiDispatchImpl(string name) {
     import std.traits, std.meta, std.variant, std.typecons;
 
     auto payload(Args...)(Args args) {
-        enum isCompatableOverload(alias T) = isCompatableWith!(Tuple!(Parameters!T),
+        enum isCompatibleOverload(alias T) = isCompatibleWith!(Tuple!(Parameters!T),
                     Tuple!(Args)) && !is(T == payload);
-        alias CompatableOverloads = Filter!(isCompatableOverload,
-                __traits(getOverloads, typeof(this), name));
-        static assert(CompatableOverloads.length > 0,
-                "Cannot find valid overload for " ~ name ~ Args.stringof);
-        alias CompatableReturnTypes = NoDuplicates!(staticMap!(ReturnType, CompatableOverloads));
-        static if (CompatableReturnTypes.length == 1)
-            alias CommonReturnType = CompatableReturnTypes[0];
+        static if(__traits(hasMember, typeof(this), name ~ "_"))
+            alias CompatibleOverloads = Filter!(isCompatibleOverload,
+                AliasSeq!(__traits(getOverloads, typeof(this), name), __traits(getOverloads, typeof(
+                    this), name ~ "_")));
         else
-            alias CommonReturnType = Algebraic!CompatableReturnTypes;
+            alias CompatibleOverloads = Filter!(isCompatibleOverload,
+                    __traits(getOverloads, typeof(this), name));
+        static assert(CompatibleOverloads.length > 0,
+                "Cannot find valid overload for " ~ name ~ Args.stringof);
+        alias CompatibleReturnTypes = NoDuplicates!(staticMap!(ReturnType, CompatibleOverloads));
+        static if (CompatibleReturnTypes.length == 1)
+            alias CommonReturnType = CompatibleReturnTypes[0];
+        else
+            alias CommonReturnType = Algebraic!CompatibleReturnTypes;
         int maxScore;
         bool isAmbiguous;
         CommonReturnType delegate() bestMatch;
-        foreach (overload; CompatableOverloads) {
+        foreach (overload; CompatibleOverloads) {
             alias Params = Parameters!overload;
             Params params;
             int score;
@@ -62,31 +69,40 @@ mixin template MultiDispatchImpl(string name) {
             if (score > maxScore) {
                 isAmbiguous = false;
                 maxScore = score;
-                static if (CompatableReturnTypes.length > 1 && !is(ReturnType!overload == void))
+                static if (CompatibleReturnTypes.length > 1 && !is(ReturnType!overload == void))
                     bestMatch = () => CommonReturnType(overload(params));
-                else static if (CompatableReturnTypes.length > 1)
+                else static if (CompatibleReturnTypes.length > 1)
                     bestMatch = () { overload(params); return CommonReturnType(); };
                 else
                     bestMatch = () => overload(params);
             }
         }
-        assert(maxScore != 0, "Cannot find valid overload for " ~ name ~ Args.stringof);
-        assert(!isAmbiguous, "Multiple overloads match" ~ name ~ Args.stringof);
+        assert(maxScore != 0, "Cannot find valid overload for " ~ name ~ args.argumentDescription);
+        assert(!isAmbiguous, "Multiple overloads match" ~ name ~ args.argumentDescription);
         return bestMatch();
     }
 
-    template isCompatableWith(alias tuple1, alias tuple2) {
+    template isCompatibleWith(alias tuple1, alias tuple2) {
         static if (tuple1.length != tuple2.length)
-            enum isCompatableWith = false;
+            enum isCompatibleWith = false;
         static foreach (i; 0 .. tuple2.length) {
-            static if (!is(typeof(isCompatableWith) == bool)
+            static if (!is(typeof(isCompatibleWith) == bool)
                     && !(is(typeof(tuple1[i]) == typeof(tuple2[i]))
                         || is(typeof(tuple1[i]) : typeof(tuple2[i]))
                         || is(typeof(tuple1[i]) == interface))) {
-                enum isCompatableWith = false;
+                enum isCompatibleWith = false;
             }
         }
-        static if (!is(typeof(isCompatableWith) == bool))
-            enum isCompatableWith = true;
+        static if (!is(typeof(isCompatibleWith) == bool))
+            enum isCompatibleWith = true;
     }
+}
+
+string argumentDescription(Args...)(Args args) {
+    string buffer = "(";
+    foreach(i, arg; args) {
+        buffer ~= typeid(arg).toString;
+        if (i - 1 < args.length) buffer ~= ", ";
+    }
+    return buffer ~ ")";
 }

@@ -23,10 +23,6 @@ void main() {
         interpreter.context.define("isRef", interpreter.nativeType.make(&zt_isRef));
         interpreter.context.define("refPtr", interpreter.nativeType.make(&zt_refPtr));
         auto context = interpreter.execute(ztModule);
-        if (auto ztMain = context.tryLookup("main"))
-            ztMain.op_call(null);
-        else
-            writeln("Error: no entry point defined");
     }
 }
 

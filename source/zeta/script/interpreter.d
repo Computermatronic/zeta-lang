@@ -19,6 +19,7 @@ import zeta.script;
 final class ZtScriptInterpreter {
     mixin(MultiDispatch!`evaluate`);
     mixin(MultiDispatch!`execute`);
+    mixin ErrorSink!(OnError.throwException, RuntimeException);
 
     SList!ZtLexicalContext stack;
     ZtValue returnValue;
@@ -61,6 +62,11 @@ final class ZtScriptInterpreter {
         return stack.front;
     }
 
+    void execute_(ZtAstStatement node) {
+        internalError(node.location, "%s statement not implemented.", typeid(node));
+        assert(0); //unreachable.
+    }
+
     ZtLexicalContext execute(ZtAstModule node) {
         auto moduleScope = new ZtLexicalContext(context);
         stack.insertFront(moduleScope);
@@ -73,22 +79,21 @@ final class ZtScriptInterpreter {
         auto oldReturnValue = returnValue;
         returnValue = nullType.nullValue;
         stack.insertFront(new ZtLexicalContext(closure.context));
-        foreach (i, paramater; closure.node.paramaters) {
-            bool isRef = paramater.attributes.canFind!((e) => e.name == "ref");
-            if (closure.node.isVariadic && i + 1 == closure.node.paramaters.length) {
-                context.define(paramater.name,
+        foreach (i, parameter; closure.node.parameters) {
+            bool isRef = parameter.attributes.canFind!((e) => e.name == "ref");
+            if (closure.node.isVariadic && i + 1 == closure.node.parameters.length) {
+                context.define(parameter.name,
                         arrayType.make(arguments[i .. $].map!((e) => isRef ? e : e.deRefed()).array));
                 break;
             }
             if (arguments.length > i)
-                context.define(paramater.name, isRef ? arguments[i] : arguments[i].deRefed());
-            else if (paramater.initializer !is null)
-                context.define(paramater.name, isRef
-                        ? evaluate(paramater.initializer) : evaluate(paramater.initializer)
+                context.define(parameter.name, isRef ? arguments[i] : arguments[i].deRefed());
+            else if (parameter.initializer !is null)
+                context.define(parameter.name, isRef
+                        ? evaluate(parameter.initializer) : evaluate(parameter.initializer)
                         .deRefed());
             else
-                assert(0,
-                        "Incorrect number of paramaters when calling function " ~ closure.node.name);
+                error(unknown, "Incorrect number of parameters when calling function %s.", closure.node.name);
         }
         execute(closure.node.members);
         stack.removeFront();
@@ -114,10 +119,6 @@ final class ZtScriptInterpreter {
             context.define(node.name, nullType.nullValue);
         else
             context.define(node.name, evaluate(node.initializer).deRefed);
-    }
-
-    void execute(ZtAstImport node) {
-        assert(0, "Not implemented!");
     }
 
     void execute(ZtAstFunction node) {
@@ -253,10 +254,6 @@ final class ZtScriptInterpreter {
         stack.removeFront();
     }
 
-    void execute(ZtAstForeach node) {
-        assert(0, "Not implemented!");
-    }
-
     void execute(ZtAstWith node) {
         stack.insertFront(new ZtWithContext(evaluate(node.aggregate), context));
         execute(node.members);
@@ -278,6 +275,11 @@ final class ZtScriptInterpreter {
 
     void execute(ZtAstExpressionStatement node) {
         evaluate(node.expression);
+    }
+
+    ZtValue evaluate_(ZtAstExpression node) {
+        internalError(node.location, "%s expression not implemented.", typeid(node));
+        assert(0); //unreachable.
     }
 
     ZtValue evaluate(ZtAstIdentifier node) {
@@ -305,9 +307,6 @@ final class ZtScriptInterpreter {
             break;
         case or:
             result = lhs.op_eval() || evaluate(node.rhs).op_eval();
-            break;
-        case xor:
-            result = lhs.op_eval() != evaluate(node.rhs).op_eval();
             break;
         case equal:
             result = lhs.op_equal(evaluate(node.rhs));
@@ -355,9 +354,9 @@ final class ZtScriptInterpreter {
         // } else if (auto index = cast(ZtAstSubscript)node.lhs) {
         //     return rhs.deRefed();
         // } else {
-        //TODO: implement proper assignment behavior instead of relying on transparent references to do the heavy lifting.
+        //TODO: implement proper assignment behaviour instead of relying on transparent references to do the heavy lifting.
         auto lhs = evaluate(node.lhs);
-        assert(lhs.isRef, "Error: Cannot assign RValue");
+        if (!lhs.isRef) error(node.location, "Cannot assign RValue.");
         if (node.operator == ZtAstBinary.Operator.no_op) lhs = rhs;
         else lhs.op_assignBinary(node.operator, rhs);
         return rhs.deRefed();
@@ -395,7 +394,8 @@ final class ZtScriptInterpreter {
         if (result.type == metaType)
             return result.m_type.op_new(evaluate(node.arguments));
         else
-            assert(0, "Cannot instantise non-type");
+            error(node.location, "Cannot instantiate %s, a non-type", result._type.name);
+        assert(0); //unreachable.
     }
 
     ZtValue evaluate(ZtAstArray node) {

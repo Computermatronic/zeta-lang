@@ -135,7 +135,7 @@ struct ZtLexer {
             buffer.popFrontN(2);
             auto end = buffer.indexOf("*/");
             if (end == -1) {
-                error(currentLocation, "Unterminated block comment.");
+                error(currentLocation, "Un-terminated block comment.");
                 auto lexeme = buffer;
                 buffer.popFrontN(buffer.length);
                 return lexeme;
@@ -162,7 +162,7 @@ struct ZtLexer {
                     subBuffer.popFront();
             }
             if (nestingLevel > 0)
-                error(currentLocation, "Unterminated nested block comment.");
+                error(currentLocation, "Un-terminated nested block comment.");
             auto end = buffer.length - subBuffer.length;
             auto lexeme = buffer[0 .. end];
             buffer.popFrontN(end);
@@ -178,7 +178,7 @@ struct ZtLexer {
             }
             token.lexeme = result.data;
             if (buffer.empty)
-                error(token.location, "Unterminated string constant.");
+                error(token.location, "Un-terminated string constant.");
             else
                 buffer.popFront();
             token.literal = token.lexeme;
@@ -190,7 +190,7 @@ struct ZtLexer {
             buffer.popFront();
             auto end = buffer.indexOf("`");
             if (end == -1) {
-                error(currentLocation, "Unterminated string literal.");
+                error(currentLocation, "Un-terminated string literal.");
                 token.lexeme = buffer;
                 buffer.popFrontN(buffer.length);
             } else {
@@ -211,7 +211,7 @@ struct ZtLexer {
             if (!buffer.empty)
                 buffer.popFront();
             else
-                error(currentLocation, "Unterminated character literal.");
+                error(currentLocation, "Un-terminated character literal.");
             return token;
         }
 

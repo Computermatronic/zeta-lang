@@ -29,13 +29,8 @@ abstract class ZtAstReference : ZtAstExpression {
 
 class ZtAstModule : ZtAstDeclaration {
     string[] packageName;
-    ZtAstDeclaration[] members;
+    ZtAstStatement[] members;
 }
-
-// class ZtAstAlias : ZtAstDeclaration {
-//     ZtAstReference type;
-//     ZtAstExpression initializer;
-// }
 
 class ZtAstDef : ZtAstDeclaration {
     ZtAstReference type;
@@ -49,63 +44,42 @@ class ZtAstImport : ZtAstDeclaration {
 
 class ZtAstFunction : ZtAstDeclaration {
     ZtAstReference type;
-    ZtAstDef[] paramaters;
+    ZtAstDef[] parameters;
     ZtAstStatement[] members;
 
     bool isVariadic;
-    bool isLinkage;
 }
 
-// class ZtAstTemplate : ZtAstDeclaration {
-//     ZtAstDeclaration[] paramaters;
-//     ZtAstDeclaration[] members;
+class ZtAstEnum : ZtAstDeclaration {
+    ZtAstReference type;
+    ZtAstEnumMember[] members;
+}
 
-//     bool isVariadic;
-//     bool isAnonymous;
-// }
+class ZtAstEnumMember : ZtAstDeclaration {
+    ZtAstExpression initializer;
+}
 
-// class ZtAstTypeParamater : ZtAstDeclaration {
-//     ZtAstReference type;
-//     ZtAstReference initializer;
-// }
+class ZtAstStruct : ZtAstDeclaration {
+    ZtAstReference[] baseTypes;
+    ZtAstStatement[] members;
+}
 
-// class ZtAstAliasParamater : ZtAstDeclaration {
-//     ZtAstReference type;
-//     ZtAstExpression initializer;
-// }
+class ZtAstClass : ZtAstDeclaration {
+    ZtAstReference[] baseTypes;
+    ZtAstStatement[] members;
+}
 
-// class ZtAstEnum : ZtAstDeclaration {
-//     ZtAstReference type;
-//     ZtAstEnumMember[] members;
-// }
-
-// class ZtAstEnumMember : ZtAstDeclaration {
-//     ZtAstExpression initializer;
-// }
-
-// class ZtAstStruct : ZtAstDeclaration {
-//     ZtAstReference[] baseTypes;
-//     ZtAstDeclaration[] members;
-
-//     bool isLinkage;
-// }
-
-// class ZtAstClass : ZtAstDeclaration {
-//     ZtAstReference[] baseTypes;
-//     ZtAstDeclaration[] members;
-// }
-
-// class ZtAstInterface : ZtAstDeclaration {
-//     ZtAstReference[] baseTypes;
-//     ZtAstDeclaration[] members;
-// }
+class ZtAstInterface : ZtAstDeclaration {
+    ZtAstReference[] baseTypes;
+    ZtAstStatement[] members;
+}
 
 class ZtAstAttribute : ZtAstNode {
     string name;
     ZtAstExpression[] arguments;
 }
 
-class ZtAstIf : ZtAstDeclaration {
+class ZtAstIf : ZtAstStatement {
     ZtAstExpression condition;
     ZtAstStatement[] members;
     ZtAstStatement[] elseMembers;
@@ -140,7 +114,7 @@ class ZtAstFor : ZtAstStatement {
     ZtAstStatement[] members;
 }
 
-class ZtAstForeach : ZtAstDeclaration {
+class ZtAstForeach : ZtAstStatement {
     ZtAstDef[] initializers;
     ZtAstExpression aggregate;
     ZtAstStatement[] members;
@@ -176,9 +150,9 @@ class ZtAstIdentifier : ZtAstReference {
     string name;
 }
 
-// class ZtAstTuple : ZtAstReference {
-//     ZtAstExpression[] arguments;
-// }
+class ZtAstTuple : ZtAstReference {
+    ZtAstExpression[] arguments;
+}
 
 class ZtAstDispatch : ZtAstReference {
     ZtAstExpression expression;
@@ -190,24 +164,14 @@ class ZtAstSubscript : ZtAstReference {
     ZtAstExpression[] arguments;
 }
 
-// class ZtAstTemplateInstance : ZtAstReference {
-//     ZtAstExpression expression;
-//     ZtAstExpression[] arguments;
-// }
-
 class ZtAstTypeOf : ZtAstReference {
     ZtAstExpression expression;
 }
-
-// class ZtAstPointerType : ZtAstReference {
-//     ZtAstReference baseType;
-// }
 
 class ZtAstLogical : ZtAstExpression {
     enum Operator : ZtToken.Type {
         and = ZtToken.Type.op_and,
         or = ZtToken.Type.op_or,
-        xor = ZtToken.Type.op_xor,
         equal = ZtToken.Type.op_equal,
         notEqual = ZtToken.Type.op_notEqual,
         lessThan = ZtToken.Type.op_lessThan,

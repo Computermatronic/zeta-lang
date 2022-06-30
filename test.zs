@@ -55,3 +55,5 @@ function test(def arg) {
 function vargs(def $1st, def args...) {
     writeln(args);
 }
+
+main();
