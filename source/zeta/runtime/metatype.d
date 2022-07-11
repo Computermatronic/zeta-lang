@@ -1,32 +1,23 @@
 /* 
  * Reference implementation of the zeta-lang scripting language.
- * Copyright (c) 2015-2021 by Sean Campbell.
+ * Copyright (c) 2015-2022 by Sean Campbell.
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.typesystem.native_t;
-
-import std.conv;
-import std.functional : toDelegate;
+module zeta.runtime.metatype;
 
 import zeta.utils;
 import zeta.script;
-import zeta.typesystem;
+import zeta.runtime;
 
-class ZtNativeType : ZtType {
+class ZtMetaType : ZtType {
     ZtScriptInterpreter interpreter;
+    ushort typeID;
 
-    ZtValue make(ZtValue delegate(ZtScriptInterpreter, ZtValue[]) fun) {
+    ZtValue make(ZtType type) {
         ZtValue result;
         result.type = this;
-        result.m_dfunc = fun;
-        return result;
-    }
-
-    ZtValue make(ZtValue function(ZtScriptInterpreter, ZtValue[]) fun) {
-        ZtValue result;
-        result.type = this;
-        result.m_dfunc = fun.toDelegate();
+        result.m_type = type;
         return result;
     }
 
@@ -35,11 +26,15 @@ class ZtNativeType : ZtType {
     }
 
     override @property string name() {
-        return "function";
+        return "type";
     }
 
     override @property string op_tostring(ZtValue* self) {
-        return "native_function:" ~ self.m_int.text;
+        return "type:" ~ self.m_type.name;
+    }
+
+    override bool op_eval(ZtValue* self) {
+        return true;
     }
 
     override ZtValue op_cast(ZtValue* self, ZtType type) {
@@ -51,8 +46,10 @@ class ZtNativeType : ZtType {
             return super.op_cast(self, type);
     }
 
-    override ZtValue op_call(ZtValue* self, ZtValue[] args) {
-        auto native = self.m_dfunc; //Work around for properties + delegates not working.
-        return native(interpreter, args);
+    override bool op_equal(ZtValue* self, ZtValue rhs) {
+        if (rhs.type == this)
+            return self.m_type == rhs.m_type;
+        else
+            return false;
     }
 }

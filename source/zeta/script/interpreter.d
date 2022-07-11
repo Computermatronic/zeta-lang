@@ -1,6 +1,6 @@
 /* 
  * Reference implementation of the zeta-lang scripting language.
- * Copyright (c) 2015-2021 by Sean Campbell.
+ * Copyright (c) 2015-2022 by Sean Campbell.
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
@@ -13,40 +13,40 @@ import std.container.slist;
 
 import zeta.utils;
 import zeta.parse;
-import zeta.typesystem;
+import zeta.runtime;
 import zeta.script;
 
 final class ZtScriptInterpreter {
     mixin(MultiDispatch!`evaluate`);
     mixin(MultiDispatch!`execute`);
-    mixin ErrorSink!(OnError.throwException, RuntimeException);
+    mixin ErrorSink!(OnError.throwException, ZtRuntimeException);
 
     SList!ZtLexicalContext stack;
     ZtValue returnValue;
     bool isReturning;
     int continueLevel, breakLevel;
 
-    ZtNullType nullType;
-    ZtBoolType booleanType;
-    ZtIntType integerType;
+    ZtNilType nilType;
+    ZtBooleanType booleanType;
+    ZtIntegerType integerType;
     ZtFloatType floatType;
     ZtStringType stringType;
     ZtArrayType arrayType;
-    ZtFunctionType functionType;
-    ZtNativeType nativeType;
+    ZtClosureType closureType;
+    ZtFFunctionType ffunctionType;
     ZtMetaType metaType;
     ZtType[] types;
 
     this() {
         stack.insertFront(new ZtLexicalContext);
-        types ~= nullType = new ZtNullType;
-        types ~= booleanType = new ZtBoolType;
-        types ~= integerType = new ZtIntType;
+        types ~= nilType = new ZtNilType;
+        types ~= booleanType = new ZtBooleanType;
+        types ~= integerType = new ZtIntegerType;
         types ~= floatType = new ZtFloatType;
         types ~= stringType = new ZtStringType;
         types ~= arrayType = new ZtArrayType;
-        types ~= functionType = new ZtFunctionType;
-        types ~= nativeType = new ZtNativeType;
+        types ~= closureType = new ZtClosureType;
+        types ~= ffunctionType = new ZtFFunctionType;
         types ~= metaType = new ZtMetaType;
 
         foreach (k, v; types) {
@@ -55,7 +55,7 @@ final class ZtScriptInterpreter {
         }
         context.define("true", booleanType.trueValue);
         context.define("false", booleanType.falseValue);
-        context.define("null", nullType.nullValue);
+        context.define("null", nilType.nullValue);
     }
 
     @property ZtLexicalContext context() {
@@ -77,7 +77,7 @@ final class ZtScriptInterpreter {
 
     ZtValue evaluate(ZtClosure closure, ZtValue[] arguments) {
         auto oldReturnValue = returnValue;
-        returnValue = nullType.nullValue;
+        returnValue = nilType.nullValue;
         stack.insertFront(new ZtLexicalContext(closure.context));
         foreach (i, parameter; closure.node.parameters) {
             bool isRef = parameter.attributes.canFind!((e) => e.name == "ref");
@@ -116,13 +116,13 @@ final class ZtScriptInterpreter {
 
     void execute(ZtAstDef node) {
         if (node.initializer is null)
-            context.define(node.name, nullType.nullValue);
+            context.define(node.name, nilType.nullValue);
         else
             context.define(node.name, evaluate(node.initializer).deRefed);
     }
 
     void execute(ZtAstFunction node) {
-        context.define(node.name, functionType.make(node, context));
+        context.define(node.name, closureType.make(node, context));
     }
 
     // void execute(ZtAstClass node) {
@@ -371,10 +371,10 @@ final class ZtScriptInterpreter {
 
     ZtValue evaluate(ZtAstApply node) {
         auto lhs = evaluate(node.expression);
-        if (lhs.type != nullType)
+        if (lhs.type != nilType)
             return lhs.op_dispatch(node.name);
         else
-            return nullType.nullValue;
+            return nilType.nullValue;
     }
 
     ZtValue evaluate(ZtAstCast node) {

@@ -1,23 +1,25 @@
 /* 
  * Reference implementation of the zeta-lang scripting language.
- * Copyright (c) 2015-2021 by Sean Campbell.
+ * Copyright (c) 2015-2022 by Sean Campbell.
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.typesystem.meta_t;
+module zeta.runtime.closure;
+
+import std.conv;
 
 import zeta.utils;
+import zeta.parse;
 import zeta.script;
-import zeta.typesystem;
+import zeta.runtime;
 
-class ZtMetaType : ZtType {
+class ZtClosureType : ZtType {
     ZtScriptInterpreter interpreter;
-    ushort typeID;
 
-    ZtValue make(ZtType type) {
+    ZtValue make(ZtAstFunction func, ZtLexicalContext ctx) {
         ZtValue result;
         result.type = this;
-        result.m_type = type;
+        result.m_closure = ZtClosure(ctx, func);
         return result;
     }
 
@@ -26,30 +28,24 @@ class ZtMetaType : ZtType {
     }
 
     override @property string name() {
-        return "type";
+        return "function";
     }
 
     override @property string op_tostring(ZtValue* self) {
-        return "type:" ~ self.m_type.name;
-    }
-
-    override bool op_eval(ZtValue* self) {
-        return true;
+        return "function:" ~ self.m_closure.node.name;
     }
 
     override ZtValue op_cast(ZtValue* self, ZtType type) {
         import std.conv : to;
 
         if (type == this)
-            return self.deRefed;
+            return *self;
         else
             return super.op_cast(self, type);
     }
 
-    override bool op_equal(ZtValue* self, ZtValue rhs) {
-        if (rhs.type == this)
-            return self.m_type == rhs.m_type;
-        else
-            return false;
+    override ZtValue op_call(ZtValue* self, ZtValue[] args) {
+        auto result = interpreter.evaluate(self.m_closure, args);
+        return result;
     }
 }

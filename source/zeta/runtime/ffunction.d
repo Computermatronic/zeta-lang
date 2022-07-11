@@ -1,25 +1,32 @@
 /* 
  * Reference implementation of the zeta-lang scripting language.
- * Copyright (c) 2015-2021 by Sean Campbell.
+ * Copyright (c) 2015-2022 by Sean Campbell.
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.typesystem.function_t;
+module zeta.runtime.ffunction;
 
 import std.conv;
+import std.functional : toDelegate;
 
 import zeta.utils;
-import zeta.parse;
 import zeta.script;
-import zeta.typesystem;
+import zeta.runtime;
 
-class ZtFunctionType : ZtType {
+class ZtFFunctionType : ZtType {
     ZtScriptInterpreter interpreter;
 
-    ZtValue make(ZtAstFunction func, ZtLexicalContext ctx) {
+    ZtValue make(ZtValue delegate(ZtScriptInterpreter, ZtValue[]) fun) {
         ZtValue result;
         result.type = this;
-        result.m_closure = ZtClosure(ctx, func);
+        result.m_dfunc = fun;
+        return result;
+    }
+
+    ZtValue make(ZtValue function(ZtScriptInterpreter, ZtValue[]) fun) {
+        ZtValue result;
+        result.type = this;
+        result.m_dfunc = fun.toDelegate();
         return result;
     }
 
@@ -32,20 +39,20 @@ class ZtFunctionType : ZtType {
     }
 
     override @property string op_tostring(ZtValue* self) {
-        return "function:" ~ self.m_closure.node.name;
+        return "native_function:" ~ self.m_int.text;
     }
 
     override ZtValue op_cast(ZtValue* self, ZtType type) {
         import std.conv : to;
 
         if (type == this)
-            return *self;
+            return self.deRefed;
         else
             return super.op_cast(self, type);
     }
 
     override ZtValue op_call(ZtValue* self, ZtValue[] args) {
-        auto result = interpreter.evaluate(self.m_closure, args);
-        return result;
+        auto native = self.m_dfunc; //Work around for properties + delegates not working.
+        return native(interpreter, args);
     }
 }

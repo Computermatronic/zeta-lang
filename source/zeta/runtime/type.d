@@ -1,10 +1,10 @@
 /* 
  * Reference implementation of the zeta-lang scripting language.
- * Copyright (c) 2015-2021 by Sean Campbell.
+ * Copyright (c) 2015-2022 by Sean Campbell.
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.typesystem.type;
+module zeta.runtime.type;
 
 import std.algorithm;
 import std.array;
@@ -12,7 +12,7 @@ import std.array;
 import zeta.utils;
 public import zeta.parse: ZtAstFunction, ZtAstBinary, ZtAstUnary;
 import zeta.script;
-import zeta.typesystem;
+import zeta.runtime;
 
 abstract class ZtType {
     abstract void register(ZtScriptInterpreter interpreter);
@@ -28,7 +28,7 @@ abstract class ZtType {
         if (type == this)
             return self.deRef;
         else
-            throw new RuntimeException("Cannot convert from type " ~ this.name ~ " to " ~ type.name);
+            throw new ZtRuntimeException("Cannot convert from type " ~ this.name ~ " to " ~ type.name);
     }
 
     bool op_equal(ZtValue* self, ZtValue rhs) {
@@ -36,48 +36,48 @@ abstract class ZtType {
     }
 
     int op_cmp(ZtValue* self, ZtValue rhs) {
-        throw new RuntimeException("Cannot cmp type " ~ this.name ~ " and " ~ rhs.type.name);
+        throw new ZtRuntimeException("Cannot cmp type " ~ this.name ~ " and " ~ rhs.type.name);
     }
 
     ZtValue op_new(ZtValue[] args) {
-        throw new RuntimeException("Cannot new type " ~ this.name);
+        throw new ZtRuntimeException("Cannot new type " ~ this.name);
     }
 
     ZtValue op_call(ZtValue* self, ZtValue[] args) {
-        throw new RuntimeException("Cannot call type " ~ this.name ~ " with (" ~ args.map!(
+        throw new ZtRuntimeException("Cannot call type " ~ this.name ~ " with (" ~ args.map!(
                 (element) => element.type.name).join(", ") ~ ")");
     }
 
     ZtValue op_unary(ZtValue* self, ZtAstUnary.Operator op) {
-        throw new RuntimeException("Cannot '" ~ op ~ "' type " ~ this.name);
+        throw new ZtRuntimeException("Cannot '" ~ op ~ "' type " ~ this.name);
     }
 
     ZtValue op_binary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
-        throw new RuntimeException(
+        throw new ZtRuntimeException(
                 "Cannot'" ~ op ~ "' with types " ~ this.name ~ " and " ~ rhs.type.name);
     }
 
     ZtValue op_index(ZtValue* self, ZtValue[] args) {
-        throw new RuntimeException("Cannot index type " ~ this.name ~ " with [" ~ args.map!(
+        throw new ZtRuntimeException("Cannot index type " ~ this.name ~ " with [" ~ args.map!(
                 (element) => element.type.name).join(", ") ~ "]");
     }
 
     ZtValue op_dispatch(ZtValue* self, string id) {
-        throw new RuntimeException("No such member " ~ id ~ " for type " ~ this.name);
+        throw new ZtRuntimeException("No such member " ~ id ~ " for type " ~ this.name);
     }
 
     void op_assignBinary(ZtValue* self, ZtAstBinary.Operator op, ZtValue rhs) {
-        throw new RuntimeException(
+        throw new ZtRuntimeException(
                 "Cannot'" ~ op ~ "=' with types " ~ this.name ~ " and " ~ rhs.type.name);
     }
 
     void op_assignIndex(ZtValue* self, ZtValue[] args, ZtAstBinary op, ZtValue rhs) {
-        throw new RuntimeException("Cannot index type " ~ this.name ~ " with [" ~ args.map!(
+        throw new ZtRuntimeException("Cannot index type " ~ this.name ~ " with [" ~ args.map!(
                 (element) => element.type.name).join(", ") ~ "]");
     }
 
     void op_assignDispatch(ZtValue* self, string id, ZtValue rhs) {
-        throw new RuntimeException("No such member " ~ id ~ " for type " ~ this.name);
+        throw new ZtRuntimeException("No such member " ~ id ~ " for type " ~ this.name);
     }
 }
 

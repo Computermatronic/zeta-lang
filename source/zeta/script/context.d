@@ -1,12 +1,12 @@
 /* 
  * Reference implementation of the zeta-lang scripting language.
- * Copyright (c) 2015-2021 by Sean Campbell.
+ * Copyright (c) 2015-2022 by Sean Campbell.
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
 module zeta.script.context;
 
-import zeta.typesystem;
+import zeta.runtime;
 import zeta.script;
 
 class ZtLexicalContext {
@@ -58,7 +58,7 @@ class ZtWithContext : ZtLexicalContext {
             return makeRef(result);
         try
             return subject.op_dispatch(name);
-        catch (RuntimeException e) {
+        catch (ZtRuntimeException e) {
             //swallow
         }
         if (outer !is null)

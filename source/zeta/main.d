@@ -7,7 +7,7 @@ import std.file : readText;
 import std.algorithm;
 import zeta.parse;
 import zeta.script;
-import zeta.typesystem;
+import zeta.runtime;
 
 void main() {
     auto sourceFile = "test.zs";
@@ -19,9 +19,9 @@ void main() {
         parser.messages.each!((e) => e.writeln);
     } else {
         auto interpreter = new ZtScriptInterpreter;
-        interpreter.context.define("writeln", interpreter.nativeType.make(&zt_writeln));
-        interpreter.context.define("isRef", interpreter.nativeType.make(&zt_isRef));
-        interpreter.context.define("refPtr", interpreter.nativeType.make(&zt_refPtr));
+        interpreter.context.define("writeln", interpreter.ffunctionType.make(&zt_writeln));
+        interpreter.context.define("isRef", interpreter.ffunctionType.make(&zt_isRef));
+        interpreter.context.define("refPtr", interpreter.ffunctionType.make(&zt_refPtr));
         auto context = interpreter.execute(ztModule);
     }
 }
@@ -29,7 +29,7 @@ void main() {
 ZtValue zt_writeln(ZtScriptInterpreter interpreter, ZtValue[] args) {
     writefln("%-(%s %)", args.map!((e) => (e.type == interpreter.stringType
             ? e.m_string : e.op_tostring)));
-    return interpreter.nullType.nullValue;
+    return interpreter.nilType.nullValue;
 }
 
 ZtValue zt_isRef(ZtScriptInterpreter interpreter, ZtValue[] args) {

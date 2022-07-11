@@ -1,60 +1,60 @@
 /* 
  * Reference implementation of the zeta-lang scripting language.
- * Copyright (c) 2015-2021 by Sean Campbell.
+ * Copyright (c) 2015-2022 by Sean Campbell.
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.typesystem.null_t;
+module zeta.runtime.boolean;
 
 import zeta.utils;
 import zeta.script;
-import zeta.typesystem;
+import zeta.runtime;
 
-class ZtNullType : ZtType {
+class ZtBooleanType : ZtType {
     ZtScriptInterpreter interpreter;
-    ushort typeID;
 
-    ZtValue nullValue;
+    ZtValue trueValue, falseValue;
 
-    ZtValue make() {
+    ZtValue make(bool value) {
         ZtValue result;
         result.type = this;
+        result.m_bool = value;
         return result;
     }
 
     override void register(ZtScriptInterpreter interpreter) {
         this.interpreter = interpreter;
-        nullValue = make();
+
+        trueValue = make(true);
+        falseValue = make(false);
     }
 
     override @property string name() {
-        return "null";
+        return "boolean";
     }
 
     override @property string op_tostring(ZtValue* self) {
-        return "null";
+        return self.m_bool ? "true" : "false";
     }
 
     override bool op_eval(ZtValue* self) {
-        return false;
+        return self.m_bool;
     }
 
     override ZtValue op_cast(ZtValue* self, ZtType type) {
-        import std.conv : to;
-
         if (type == this)
             return self.deRefed;
         else if (type == interpreter.stringType)
-            return interpreter.stringType.make("");
-        else if (type == interpreter.arrayType)
-            return interpreter.arrayType.make([]);
+            return interpreter.stringType.make(self.m_bool ? "true" : "false");
+        else if (type == interpreter.integerType)
+            return interpreter.integerType.make(self.m_bool ? 1 : 0);
+        else if (type == interpreter.floatType)
+            return interpreter.floatType.make(self.m_bool ? 1.0 : 0.0);
         else
             return super.op_cast(self, type);
     }
 
     override bool op_equal(ZtValue* self, ZtValue rhs) {
-        return self.type == rhs.type || (rhs.type == interpreter.stringType
-                && rhs.m_string.length == 0)
-            || (rhs.type == interpreter.arrayType && rhs.m_array.length == 0);
+        return self.m_bool == rhs.op_eval();
     }
 }

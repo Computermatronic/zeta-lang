@@ -1,18 +1,18 @@
 /* 
  * Reference implementation of the zeta-lang scripting language.
- * Copyright (c) 2015-2021 by Sean Campbell.
+ * Copyright (c) 2015-2022 by Sean Campbell.
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.typesystem.int_t;
+module zeta.runtime.integer;
 
 import std.conv;
 
 import zeta.utils;
 import zeta.script;
-import zeta.typesystem;
+import zeta.runtime;
 
-class ZtIntType : ZtType {
+class ZtIntegerType : ZtType {
     ZtScriptInterpreter interpreter;
 
     ZtValue make(sizediff_t value) {
