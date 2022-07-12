@@ -4,8 +4,8 @@
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.script;
+module zeta.interpret;
 
 public:
-import zeta.script.context;
-import zeta.script.interpreter;
+import zeta.interpret.context;
+import zeta.interpret.interpreter;

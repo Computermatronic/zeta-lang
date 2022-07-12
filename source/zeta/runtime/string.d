@@ -7,7 +7,7 @@
 module zeta.runtime.string;
 
 import zeta.utils;
-import zeta.script;
+import zeta.interpret;
 import zeta.runtime;
 
 class ZtStringType : ZtType {

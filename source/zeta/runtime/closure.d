@@ -10,7 +10,7 @@ import std.conv;
 
 import zeta.utils;
 import zeta.parse;
-import zeta.script;
+import zeta.interpret;
 import zeta.runtime;
 
 class ZtClosureType : ZtType {

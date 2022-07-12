@@ -4,10 +4,9 @@
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.script.context;
+module zeta.interpret.context;
 
 import zeta.runtime;
-import zeta.script;
 
 class ZtLexicalContext {
     ZtLexicalContext outer;

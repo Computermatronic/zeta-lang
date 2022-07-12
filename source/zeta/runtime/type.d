@@ -11,7 +11,7 @@ import std.array;
 
 import zeta.utils;
 public import zeta.parse: ZtAstFunction, ZtAstBinary, ZtAstUnary;
-import zeta.script;
+import zeta.interpret;
 import zeta.runtime;
 
 abstract class ZtType {

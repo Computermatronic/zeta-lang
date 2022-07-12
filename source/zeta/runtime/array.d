@@ -10,7 +10,7 @@ import std.algorithm;
 import std.array;
 
 import zeta.utils;
-import zeta.script;
+import zeta.interpret;
 import zeta.runtime;
 
 class ZtArrayType : ZtType {

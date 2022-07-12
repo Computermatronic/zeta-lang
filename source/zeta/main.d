@@ -6,7 +6,7 @@ import std.array;
 import std.file : readText;
 import std.algorithm;
 import zeta.parse;
-import zeta.script;
+import zeta.interpret;
 import zeta.runtime;
 
 void main() {

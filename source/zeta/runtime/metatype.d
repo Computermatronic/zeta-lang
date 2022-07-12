@@ -7,7 +7,7 @@
 module zeta.runtime.metatype;
 
 import zeta.utils;
-import zeta.script;
+import zeta.interpret;
 import zeta.runtime;
 
 class ZtMetaType : ZtType {

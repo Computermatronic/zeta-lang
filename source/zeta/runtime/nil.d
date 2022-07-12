@@ -7,7 +7,7 @@
 module zeta.runtime.nil;
 
 import zeta.utils;
-import zeta.script;
+import zeta.interpret;
 import zeta.runtime;
 
 class ZtNilType : ZtType {

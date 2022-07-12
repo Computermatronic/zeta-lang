@@ -4,7 +4,7 @@
  * Written by Sean Campbell.
  * Distributed under The MPL-2.0 license (See LICENCE file).
  */
-module zeta.script.interpreter;
+module zeta.interpret.interpreter;
 
 import std.conv : to;
 import std.algorithm;
@@ -14,7 +14,7 @@ import std.container.slist;
 import zeta.utils;
 import zeta.parse;
 import zeta.runtime;
-import zeta.script;
+import zeta.interpret;
 
 final class ZtScriptInterpreter {
     mixin(MultiDispatch!`evaluate`);

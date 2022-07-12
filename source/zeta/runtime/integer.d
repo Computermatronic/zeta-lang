@@ -9,7 +9,7 @@ module zeta.runtime.integer;
 import std.conv;
 
 import zeta.utils;
-import zeta.script;
+import zeta.interpret;
 import zeta.runtime;
 
 class ZtIntegerType : ZtType {

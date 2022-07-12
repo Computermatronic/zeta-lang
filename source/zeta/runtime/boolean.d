@@ -7,7 +7,7 @@
 module zeta.runtime.boolean;
 
 import zeta.utils;
-import zeta.script;
+import zeta.interpret;
 import zeta.runtime;
 
 class ZtBooleanType : ZtType {
